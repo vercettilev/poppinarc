@@ -107,8 +107,9 @@ export class ActionsStore {
   }
 }
 
+/** EVM hashes are lowercased so lookups match; a Solana signature is case-sensitive and kept as is. */
 function normalizeLeg(l: Leg): Leg {
-  return l.txHash ? { ...l, txHash: l.txHash.toLowerCase() } : l;
+  return l.txHash && /^0x/i.test(l.txHash) ? { ...l, txHash: l.txHash.toLowerCase() } : l;
 }
 
 function toRow(r: Record<string, any>): ActionRow {

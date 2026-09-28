@@ -53,6 +53,8 @@ export interface AppConfig {
   };
   /** Poppin's own fee, the same variable name and meaning as the Solana product. */
   feeBps: number;
+  /** Worst price move a swap accepts, in basis points. App Kit's own default is 300. */
+  slippageBps: number;
   /** Where Poppin's fee lands on Arc. Receiving needs no key on this server. */
   feeRecipient: `0x${string}` | null;
   rpcUrl: string;
@@ -96,6 +98,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       accountType: accountType(env.CIRCLE_ACCOUNT_TYPE),
     },
     feeBps: int(env.SPOT_FEE_BPS, 0, 0, 500),
+    slippageBps: int(env.ARC_SLIPPAGE_BPS, 50, 1, 1000),
     feeRecipient: (feeRecipient as `0x${string}` | null) ?? null,
     rpcUrl: real(env.ARC_RPC_URL) ?? network.rpcUrl,
     corsOrigins: (real(env.CORS_ORIGINS) ?? '')

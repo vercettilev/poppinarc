@@ -60,4 +60,17 @@ export const MIGRATIONS: { version: number; name: string; sql: string }[] = [
       );
     `,
   },
+  {
+    version: 2,
+    name: 'case-insensitive usernames, profile extras',
+    sql: `
+      -- The extension checks names case-insensitively; so does the database.
+      CREATE UNIQUE INDEX users_username_lower ON users (lower(username));
+      ALTER TABLE users
+        ADD COLUMN bio text,
+        ADD COLUMN cover_photo_url text,
+        ADD COLUMN notifications_enabled boolean,
+        ADD COLUMN public_wins boolean;
+    `,
+  },
 ];

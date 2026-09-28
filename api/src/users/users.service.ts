@@ -8,6 +8,10 @@ export interface UserRow {
   username: string | null;
   displayName: string | null;
   avatarUrl: string | null;
+  bio: string | null;
+  coverPhotoUrl: string | null;
+  notificationsEnabled: boolean | null;
+  publicWins: boolean | null;
   createdAt: string;
 }
 
@@ -43,6 +47,10 @@ export class UsersService {
           username: r.username,
           displayName: r.display_name,
           avatarUrl: r.avatar_url,
+          bio: r.bio ?? null,
+          coverPhotoUrl: r.cover_photo_url ?? null,
+          notificationsEnabled: r.notifications_enabled ?? null,
+          publicWins: r.public_wins ?? null,
           createdAt: new Date(r.created_at).toISOString(),
         }
       : null;
@@ -64,13 +72,35 @@ export class UsersService {
     }
   }
 
-  async setProfile(uid: string, p: { displayName?: string | null; avatarUrl?: string | null }): Promise<void> {
+  async setProfile(
+    uid: string,
+    p: {
+      displayName?: string | null;
+      avatarUrl?: string | null;
+      coverPhotoUrl?: string | null;
+      bio?: string;
+      notificationsEnabled?: boolean;
+      publicWins?: boolean;
+    },
+  ): Promise<void> {
     await this.db.query(
       `UPDATE users SET
          display_name = COALESCE($2, display_name),
-         avatar_url = COALESCE($3, avatar_url)
+         avatar_url = COALESCE($3, avatar_url),
+         cover_photo_url = COALESCE($4, cover_photo_url),
+         bio = COALESCE($5, bio),
+         notifications_enabled = COALESCE($6, notifications_enabled),
+         public_wins = COALESCE($7, public_wins)
        WHERE uid = $1`,
-      [uid, p.displayName ?? null, p.avatarUrl ?? null],
+      [
+        uid,
+        p.displayName ?? null,
+        p.avatarUrl ?? null,
+        p.coverPhotoUrl ?? null,
+        p.bio ?? null,
+        p.notificationsEnabled ?? null,
+        p.publicWins ?? null,
+      ],
     );
   }
 }
