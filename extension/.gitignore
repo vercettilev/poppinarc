@@ -1,0 +1,11 @@
+**/dist
+**/node_modules
+.DS_Store
+
+
+web
+custom_server.py
+poppin-extension.zip
+
+# Local override for the Arc edition build (vite --mode arc)
+.env.arc.local

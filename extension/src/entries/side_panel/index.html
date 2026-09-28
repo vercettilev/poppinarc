@@ -1,0 +1,38 @@
+<!doctype html>
+<!-- THIS COLOUR IS ONLY EVER SEEN IN THE FIRST FRAME.
+
+     The shell (components/Layout.tsx, inside the popup-app Paper in
+     entries/popup/App.tsx) squares its corners in the side panel and fills
+     100% x 100svh, so once React paints there is no notch, no margin and no
+     strip through which this document's canvas can show. That is the actual
+     repair for "the background does not cover the whole surface" — not a
+     colour match. A colour match was only ever hiding the notch.
+
+     So what is left for this value to do is the frame BEFORE React mounts,
+     plus whatever sub-pixel sliver a fractional device-pixel ratio rounds
+     off the shell's box. It must therefore look like the ground the reader
+     is about to be shown, and the previous rule ("match
+     BRAND_GROUND.backgroundColor") did not: that flat colour sits UNDER an
+     opaque three-layer gradient (helpers/brandGround.ts), so it is painted
+     nowhere the reader can see it. Matching it swapped #090E17 for #0A0D14
+     — three hex digits, invisible, and aimed at a layer that never shows.
+
+     The colour the reader actually meets is the top of the sweep. The panel
+     opens with the eye at the top, and linear-gradient(150deg, ...) starts
+     at #101B2C there. So: the sweep's 0% stop. components/panel-frame.spec.ts
+     reads that stop out of brandGround.ts and pins this file to it, so the
+     two cannot drift.
+
+     Body carries it too: MUI's CssBaseline repaints body from
+     palette.background.default, and an inline style outranks that global
+     rule without dragging the welcome surface along with it. -->
+<html lang="en" style="overflow-y: hidden; background-color: #101B2C;">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Options</title>
+  </head>
+  <body style="background-color: #101B2C;">
+    <div id="app"></div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>

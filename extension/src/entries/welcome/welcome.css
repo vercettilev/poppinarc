@@ -1,0 +1,50 @@
+/* Extracted from an inline <style> in index.html. The inline block made
+   Vite emit a `?html-proxy&inline-css&index=0.css` virtual module that
+   the web-extension plugin fails to register for an additionalInputs
+   HTML entry, breaking the WHOLE extension build with
+   "[vite:html-inline-proxy] No matching HTML proxy module found".
+   A linked stylesheet is a normal asset (no html-proxy) — identical
+   rendering, build no longer races. */
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: #000;
+}
+
+/* ── MOTION IS A PREFERENCE, NOT A DECISION WE GET TO MAKE ───────────────
+   The chip, the card and the panel each gate their own animations; the
+   welcome tab had no rule at all, which made the product's FIRST screen the
+   one that ignored the reader's operating system. Blunt on purpose: nothing
+   in this flow means anything its end state does not already mean. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── THE YOU'RE-IN ARRIVAL ───────────────────────────────────────────────
+   Not a particle dump — a choreographed entrance. Each element rises into
+   its resting place a beat after the one before, so the screen assembles
+   itself. Every keyframe ENDS at the visible resting state, so the
+   reduced-motion blanket above (which cuts duration to ~0) lands each
+   element exactly where it belongs, just instantly. */
+@keyframes youre-pop {
+  from { opacity: 0; transform: scale(.7); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes youre-rise {
+  from { opacity: 0; transform: translateY(16px) scale(.97); }
+  to   { opacity: 1; transform: none; }
+}
+/* One sweep of light across the hero card as it lands, then done — a
+   looping shimmer is exactly the "AI-generated" tell we are avoiding. */
+@keyframes youre-shine {
+  from { left: -70%; }
+  to   { left: 130%; }
+}
