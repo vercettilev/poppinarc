@@ -29,6 +29,12 @@ function int(value: string | undefined, fallback: number, min: number, max: numb
   return n;
 }
 
+function accountType(value: string | undefined): 'EOA' | 'SCA' {
+  const v = (real(value) ?? 'EOA').toUpperCase();
+  if (v !== 'EOA' && v !== 'SCA') throw new Error(`CIRCLE_ACCOUNT_TYPE must be EOA or SCA, got "${v}"`);
+  return v;
+}
+
 export interface AppConfig {
   network: ArcNetwork;
   port: number;
@@ -38,6 +44,12 @@ export interface AppConfig {
   circle: {
     apiKey: string | null;
     entitySecret: string | null;
+    /**
+     * EOA: the wallet pays Arc's tiny USDC gas itself and every call is one
+     * direct transaction. SCA: Gas Station sponsors gas through ERC-4337, which
+     * also works on the EVM deposit networks. Chosen per deploy, not per user.
+     */
+    accountType: 'EOA' | 'SCA';
   };
   /** Poppin's own fee, the same variable name and meaning as the Solana product. */
   feeBps: number;
@@ -81,6 +93,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     circle: {
       apiKey,
       entitySecret: real(env.CIRCLE_ENTITY_SECRET),
+      accountType: accountType(env.CIRCLE_ACCOUNT_TYPE),
     },
     feeBps: int(env.SPOT_FEE_BPS, 0, 0, 500),
     feeRecipient: (feeRecipient as `0x${string}` | null) ?? null,
