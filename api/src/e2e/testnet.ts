@@ -8,7 +8,7 @@
  * Runs INSIDE the deployed container, where the database is reachable on
  * Railway's private network and the Circle keys are already in the env:
  *
- *   cd arc/api && railway ssh --service arc-api -- DEPOSIT_SWEEP_SECONDS=0 node dist/e2e/testnet.js
+ *   cd api && railway ssh --service arc-api -- DEPOSIT_SWEEP_SECONDS=0 node dist/e2e/testnet.js
  *
  * Refuses to run anywhere but testnet. Prints addresses and hashes only,
  * never a key.

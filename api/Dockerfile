@@ -1,4 +1,4 @@
-# Poppin on Arc API. The Railway service's root directory is arc/api, so the
+# Poppin on Arc API. The Railway service's root directory is api, so the
 # build context is this folder alone: its own package.json and lockfile, and
 # nothing from the rest of the monorepo.
 FROM node:22-slim AS build
