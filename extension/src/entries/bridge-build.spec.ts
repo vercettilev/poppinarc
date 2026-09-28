@@ -15,7 +15,7 @@ const read = (p: string) => readFileSync(join(root, p), "utf8")
 describe("the page wallet bridge is built whole", () => {
   it("the build runs the bridge config after the main build", () => {
     const pkg = JSON.parse(read("package.json")) as { scripts: Record<string, string> }
-    expect(pkg.scripts.build).toMatch(/vite build && vite build -c vite\.bridge\.config\.ts/)
+    expect(pkg.scripts.build).toMatch(/vite build( --mode \w+)? && vite build -c vite\.bridge\.config\.ts/)
   })
 
   it("the bridge config emits one self-contained IIFE at the injected path", () => {

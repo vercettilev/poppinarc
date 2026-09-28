@@ -12,6 +12,18 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     include: ["src/**/*.spec.{ts,tsx}"],
+    // These five compare the extension with Poppin's Solana backend, file
+    // for file (site chat, the fund door's telemetry names). That backend
+    // lives in Poppin's private monorepo, not here, and the surfaces they
+    // guard are off in the Arc edition, so they run there and not here.
+    exclude: [
+      "**/node_modules/**",
+      "src/components/fund-door-counted.spec.ts",
+      "src/helpers/siteChatGate.spec.ts",
+      "src/helpers/siteChatHost.spec.ts",
+      "src/helpers/siteChatTransport.spec.ts",
+      "src/views/live-chat.spec.ts",
+    ],
   },
   esbuild: { jsx: "automatic", jsxImportSource: "preact" },
   resolve: {
