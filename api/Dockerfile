@@ -3,6 +3,10 @@
 # nothing from the rest of the monorepo.
 FROM node:22-slim AS build
 WORKDIR /app
+# The lockfile was written by npm 11; node:22's bundled npm reads its
+# optional peer entries differently and refuses `npm ci` ("Missing:
+# utf-8-validate from lock file", first Railway build, 2026-09-28).
+RUN npm install -g npm@11.13.0 --no-audit --no-fund
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY tsconfig.json tsconfig.build.json ./
