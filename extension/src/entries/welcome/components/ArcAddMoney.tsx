@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { USDC_MINT } from "~/arc/chain"
 import { CNBC_ICON_URI, REDDIT_ICON_URI } from "~/assets/tryPlaceIcons"
 import { ARC_TRY_PLACES, type TryPlace } from "~/config/onboarding"
+import { ConnectWalletCard } from "~/arc/ConnectWalletCard"
 import { depositCardView, pillAddress, useDepositAddresses } from "~/arc/depositAddresses"
 import { QrCode } from "~/components/QrCode"
 import { AmountPicker } from "~/arc/AmountPicker"
@@ -322,7 +323,9 @@ export function ArcAddMoney({ onDone }: { onDone: (to?: string) => void | Promis
         />
       }
     >
-      {place ? (
+      {deposit?.connectWallet ? (
+        <ConnectWalletCard font={FONT} />
+      ) : place ? (
         <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
           <AmountPicker value={amount} onChange={setAmount} font={FONT} />
           {places.length > 1 && (

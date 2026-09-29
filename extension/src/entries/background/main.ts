@@ -900,6 +900,22 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     void openArcConfirm(request.url, request.id).then(sendResponse)
     return true
   }
+  // arc-api's wallet page in connect mode, relayed from its exact host: the
+  // wallet is connected, and the account reads it on its next /users/me.
+  if (request?.action === "arc-wallet-linked") {
+    let host = ""
+    try {
+      host = new URL(sender.tab?.url ?? "").hostname
+    } catch {
+      // no tab URL: not the relay's shape
+    }
+    if (ARC_EDITION && ARC_API_HOST && host === ARC_API_HOST && sender.tab?.id !== undefined) {
+      const tabId = sender.tab.id
+      setTimeout(() => void chrome.tabs.remove(tabId).catch(() => {}), 1500)
+    }
+    sendResponse({ ok: true })
+    return true
+  }
   // That page, relayed from arc-api's exact host, saying the wallet is done.
   if (request?.action === "arc-trade-done") {
     let host = ""

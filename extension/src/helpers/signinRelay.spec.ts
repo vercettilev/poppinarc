@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { ARC_TRADE_DONE_MESSAGE, ARC_WALLET_SIGNIN_MESSAGE, installSigninRelay, SIGNIN_POST_MESSAGE } from "./signinRelay"
+import {
+  ARC_TRADE_DONE_MESSAGE,
+  ARC_WALLET_LINKED_MESSAGE,
+  ARC_WALLET_SIGNIN_MESSAGE,
+  installSigninRelay,
+  SIGNIN_POST_MESSAGE,
+} from "./signinRelay"
 
 /**
  * The channel that exists in every Chromium. Brave withholds chrome.runtime
@@ -133,6 +139,18 @@ describe("the Arc edition's wallet page", () => {
   it("hears no confirm window anywhere but arc-api", () => {
     teardowns.push(installSigninRelay("app.poppin.so", ARC))
     post({ type: ARC_TRADE_DONE_MESSAGE, id: "0c3e5f6a-1111-4222-8333-944455556666" })
+    expect(sendMessage).not.toHaveBeenCalled()
+  })
+
+  it("tells the background the wallet page connected a wallet, from arc-api only", () => {
+    teardowns.push(installSigninRelay(ARC, ARC))
+    post({ type: ARC_WALLET_LINKED_MESSAGE, address: "0xabc" })
+    expect(sendMessage).toHaveBeenCalledWith({ action: "arc-wallet-linked" })
+    sendMessage.mockClear()
+    for (const t of teardowns.splice(0)) t()
+    delete (window as any).__poppinSigninRelay
+    teardowns.push(installSigninRelay("app.poppin.so", ARC))
+    post({ type: ARC_WALLET_LINKED_MESSAGE, address: "0xabc" })
     expect(sendMessage).not.toHaveBeenCalled()
   })
 })

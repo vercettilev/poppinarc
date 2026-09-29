@@ -24,6 +24,14 @@ beforeEach(() => {
 })
 
 describe("parseDepositAddresses", () => {
+  it("reads arc-api's 'connect a wallet' answer as a screen with no address yet", () => {
+    expect(parseDepositAddresses({ others: [], connectWallet: true })).toEqual({
+      arc: { network: "Arc", address: "" },
+      others: [],
+      connectWallet: true,
+    })
+  })
+
   it("keeps Arc first and every other network named, EVM addresses lowercase", () => {
     const got = parseDepositAddresses({
       arc: { network: "Arc", address: ARC },

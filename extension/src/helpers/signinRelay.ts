@@ -31,6 +31,8 @@ export const SIGNIN_POST_MESSAGE = "POPPIN_EXT_SIGNIN"
 export const ARC_WALLET_SIGNIN_MESSAGE = "POPPIN_ARC_WALLET_SIGNIN"
 /** arc-api's confirm page, once the wallet has sent the trade (arc-api trade/confirm-page.ts). */
 export const ARC_TRADE_DONE_MESSAGE = "POPPIN_ARC_TRADE_DONE"
+/** arc-api's wallet page in connect mode, once the wallet is connected to the account. */
+export const ARC_WALLET_LINKED_MESSAGE = "POPPIN_ARC_WALLET_LINKED"
 
 /** arc-api's host in the Arc edition (from NEXT_PUBLIC_API_URL); null in the store build. */
 export const ARC_API_HOST: string | null = (() => {
@@ -67,6 +69,15 @@ export function installSigninRelay(
         void chrome.runtime.sendMessage({ action: "arc-trade-done", id: d.id }).catch(() => {})
       } catch {
         // Extension context invalidated. The window stays open; nothing is lost.
+      }
+      return
+    }
+    // The wallet page connected a wallet to the account: the background closes its tab.
+    if (arcApi && d?.type === ARC_WALLET_LINKED_MESSAGE) {
+      try {
+        void chrome.runtime.sendMessage({ action: "arc-wallet-linked" }).catch(() => {})
+      } catch {
+        // Extension context invalidated. The tab says it can be closed.
       }
       return
     }

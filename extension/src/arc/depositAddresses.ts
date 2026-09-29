@@ -30,6 +30,12 @@ export interface DepositNetworkAddress {
 export interface DepositAddresses {
   arc: { network: "Arc"; address: string }
   others: DepositNetworkAddress[]
+  /**
+   * No wallet yet, and this deploy trades from people's own wallets: the
+   * screen offers to connect one (arc/ConnectWalletCard.tsx). The Arc address
+   * is then empty.
+   */
+  connectWallet?: true
 }
 
 export const DEPOSIT_ADDRESSES_ROUTE = "/arc/deposit-addresses"
@@ -72,8 +78,9 @@ function cleanAddress(a: unknown): string | null {
  */
 export function parseDepositAddresses(body: unknown): DepositAddresses | null {
   const root = (body as { data?: unknown } | null)?.data ?? body
-  const r = root as { arc?: { address?: unknown }; others?: unknown } | null
+  const r = root as { arc?: { address?: unknown }; others?: unknown; connectWallet?: unknown } | null
   if (!r || typeof r !== "object") return null
+  if (r.connectWallet === true) return { arc: { network: "Arc", address: "" }, others: [], connectWallet: true }
   const arcAddress = cleanAddress(r.arc?.address)
   if (!arcAddress || !EVM.test(arcAddress)) return null
   const others: DepositNetworkAddress[] = []

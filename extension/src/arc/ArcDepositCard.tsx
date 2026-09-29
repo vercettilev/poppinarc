@@ -6,6 +6,7 @@ import { QrCode } from "~/components/QrCode"
 import { useToast } from "~/components/Toast/ToastProvider"
 import { ACCENT, DIM, FAINT, PANEL_CARD } from "~/helpers/panelSurface"
 import { JUICE } from "~/theme/juice"
+import { ConnectWalletCard } from "./ConnectWalletCard"
 import { depositCardView, pillAddress, useDepositAddresses } from "./depositAddresses"
 import { depositPlaces, NetworkSelect, placeInstruction } from "./NetworkSelect"
 
@@ -47,6 +48,14 @@ export function ArcDepositCard({
   const view = depositCardView(data ?? null, fallbackAddress)
   const places = depositPlaces(view.arcAddress, view.others)
   const place = places.find((p) => p.network === network) ?? places[0]
+
+  if (data?.connectWallet) {
+    return (
+      <Box sx={{ mx: 2, mt: 2 }}>
+        <ConnectWalletCard />
+      </Box>
+    )
+  }
 
   if (!place) {
     if (isLoading) {
