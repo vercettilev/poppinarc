@@ -7,7 +7,7 @@ import { ARC_TRY_PLACES, type TryPlace } from "~/config/onboarding"
 import { depositCardView, pillAddress, useDepositAddresses } from "~/arc/depositAddresses"
 import { QrCode } from "~/components/QrCode"
 import { AmountPicker } from "~/arc/AmountPicker"
-import { depositPlaces, NetworkSelect } from "~/arc/NetworkSelect"
+import { depositPlaces, landingLine, NetworkSelect, sendLine } from "~/arc/NetworkSelect"
 import { useMyWallet, useWalletTokens } from "~/hooks/useWallet"
 import { QuietAction, StepFrame } from "./StepFrame"
 import { GhostMark } from "./GhostMark"
@@ -341,16 +341,14 @@ export function ArcAddMoney({ onDone }: { onDone: (to?: string) => void | Promis
             <QrCode value={place.address} size={132} />
             <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
               <Typography sx={{ fontFamily: FONT, fontSize: 14, fontWeight: 500, color: "#EAF2FB", lineHeight: 1.4 }}>
-                {`Send ${amount} USDC on ${place.network} to this address.`}
+                {`${sendLine(place, amount)} to this address.`}
               </Typography>
               <Typography sx={{ fontFamily: MONO, fontSize: 14, color: "#EAF2FB", letterSpacing: ".01em", wordBreak: "break-all" }}>
                 {groupedAddress(place.address)}
               </Typography>
               {place.network !== "Arc" && (
                 <Typography sx={{ fontFamily: FONT, fontSize: 12.5, color: "#8CA3BD", lineHeight: 1.45 }}>
-                  {place.minUsdc
-                    ? `From ${place.minUsdc} USDC. It moves to your balance on its own.`
-                    : "It moves to your balance on its own."}
+                  {landingLine(place)}
                 </Typography>
               )}
               <Button

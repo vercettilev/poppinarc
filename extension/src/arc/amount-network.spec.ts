@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest"
 import { cleanAmountInput, parseAmount } from "./AmountPicker"
-import { depositPlaces, placeHint, placeInstruction } from "./NetworkSelect"
+import { depositPlaces, landingLine, placeInstruction, sendLine } from "./NetworkSelect"
 
 /**
  * The Add money screen's two choices: any amount (not only the three
- * shortcuts), and the network, Arc first, each with the sentence that says
- * what happens to money sent there.
+ * shortcuts), and the network, Arc first, with one sentence under the
+ * address saying what happens to money sent there.
  */
 describe("typing an amount", () => {
   it("keeps digits and one point with two decimals", () => {
@@ -42,9 +42,18 @@ describe("the network", () => {
   it("says what happens to money sent on each", () => {
     const [arc, sol, , poly] = depositPlaces(ARC, others)
     expect(placeInstruction(arc!, 25)).toBe("Send 25 USDC on Arc. It's ready the moment it lands.")
-    expect(placeInstruction(sol!, 100)).toBe("Send 100 USDC on Solana. From 5 USDC, it moves to your balance on its own.")
-    expect(placeInstruction(poly!, 12.5)).toBe("Send 12.5 USDC on Polygon. It moves to your balance on its own.")
-    expect(placeHint(arc!)).toBe("Straight to your balance")
-    expect(placeHint(sol!)).toBe("From 5 USDC, moved to your balance for you")
+    expect(placeInstruction(sol!, 100)).toBe("Send 100 USDC on Solana. We'll move it to your balance.")
+    expect(placeInstruction(poly!, 12.5)).toBe("Send 12.5 USDC on Polygon. We'll move it to your balance.")
+    expect(landingLine(arc!)).toBe("It's ready the moment it lands.")
+  })
+
+  it("names a network's smallest amount only while the amount is under it", () => {
+    const [arc, sol, base] = depositPlaces(ARC, others)
+    expect(sendLine(sol!, 2)).toBe("Send at least 5 USDC on Solana")
+    expect(sendLine(sol!, undefined)).toBe("Send at least 5 USDC on Solana")
+    expect(sendLine(sol!, 5)).toBe("Send 5 USDC on Solana")
+    expect(sendLine(base!, 1)).toBe("Send 1 USDC on Base")
+    expect(sendLine(arc!, 0.5)).toBe("Send 0.5 USDC on Arc")
+    expect(sendLine(arc!, undefined)).toBe("Send USDC on Arc")
   })
 })
