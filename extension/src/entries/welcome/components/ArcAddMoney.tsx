@@ -7,6 +7,7 @@ import { ARC_TRY_PLACES, type TryPlace } from "~/config/onboarding"
 import { depositCardView, pillAddress, useDepositAddresses } from "~/arc/depositAddresses"
 import { QrCode } from "~/components/QrCode"
 import { AmountPicker } from "~/arc/AmountPicker"
+import { depositPlaces, NetworkSelect } from "~/arc/NetworkSelect"
 import { useMyWallet, useWalletTokens } from "~/hooks/useWallet"
 import { QuietAction, StepFrame } from "./StepFrame"
 import { GhostMark } from "./GhostMark"
@@ -188,9 +189,7 @@ export function ArcAddMoney({ onDone }: { onDone: (to?: string) => void | Promis
       "",
   )
   const view = depositCardView(deposit ?? null, fallback)
-  const places: Array<{ network: string; address: string; minUsdc?: string }> = view.arcAddress
-    ? [{ network: "Arc", address: view.arcAddress }, ...view.others]
-    : []
+  const places = depositPlaces(view.arcAddress, view.others)
   const place = places.find((p) => p.network === network) ?? places[0] ?? null
   const addressMissing = !view.arcAddress
   useEffect(() => {
@@ -327,40 +326,15 @@ export function ArcAddMoney({ onDone }: { onDone: (to?: string) => void | Promis
         <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
           <AmountPicker value={amount} onChange={setAmount} font={FONT} />
           {places.length > 1 && (
-            <Box role="radiogroup" aria-label="Network" sx={{ width: "100%", display: "flex", flexWrap: "wrap", gap: 0.75 }}>
-              {places.map((p) => {
-                const on = p.network === place.network
-                return (
-                  <Box
-                    key={p.network}
-                    component="button"
-                    type="button"
-                    role="radio"
-                    aria-checked={on}
-                    onClick={() => {
-                      if (!on) track(`network_${p.network.toLowerCase()}`)
-                      setNetwork(p.network)
-                    }}
-                    sx={{
-                      height: 34,
-                      px: 1.75,
-                      border: 0,
-                      borderRadius: "999px",
-                      cursor: "pointer",
-                      fontFamily: FONT,
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: on ? "#06202E" : "rgba(255,255,255,.8)",
-                      backgroundColor: on ? "#EAF2FB" : "rgba(255,255,255,.05)",
-                      boxShadow: on ? "none" : "inset 0 0 0 1px rgba(255,255,255,.10)",
-                      "&:hover": { backgroundColor: on ? "#EAF2FB" : "rgba(255,255,255,.09)" },
-                    }}
-                  >
-                    {p.network}
-                  </Box>
-                )
-              })}
-            </Box>
+            <NetworkSelect
+              places={places}
+              value={place.network}
+              onChange={(n) => {
+                if (n !== place.network) track(`network_${n.toLowerCase()}`)
+                setNetwork(n)
+              }}
+              font={FONT}
+            />
           )}
           <Box sx={CARD_SX}>
             {/* A plain code: the mark in the middle did not look good (Lev, 2026-09-29). */}
