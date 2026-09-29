@@ -1,0 +1,354 @@
+[
+  {
+    "url": "https://www.cnbc.com/2025/05/22/bitcoin-price-hits-new-record-high-above-111000.html",
+    "kind": "article",
+    "headline": "Bitcoin hits new record high near $112,000 as rally marches on",
+    "expect": "bitcoin",
+    "bucket": 1,
+    "why": "Reports bitcoin's price hitting a new all-time high near $112,000, a direct bitcoin market move."
+  },
+  {
+    "url": "https://www.bbc.com/news/articles/cy09x24q0pro",
+    "kind": "article",
+    "headline": "Bitcoin falls to lowest level since Trump took office",
+    "expect": "bitcoin",
+    "bucket": 1,
+    "why": "Reports bitcoin's price falling to about $60,000, its lowest level in 16 months, a direct bitcoin market move."
+  },
+  {
+    "url": "https://fortune.com/2026/07/06/michael-saylor-strategy-216-million-bitcoin-sale-largest-ever/",
+    "kind": "article",
+    "headline": "Strategy sheds $216 million in Bitcoin in crypto hoarder’s largest sale ever",
+    "expect": "bitcoin",
+    "bucket": 1,
+    "why": "Strategy, the largest corporate bitcoin treasury, selling $216 million of bitcoin is a treasury-flow story about bitcoin itself."
+  },
+  {
+    "url": "https://www.coindesk.com/markets/2025/11/18/bitcoin-hashprice-falls-to-five-year-low",
+    "kind": "article",
+    "headline": "Bitcoin Hashprice Falls to Five-Year Low",
+    "expect": "bitcoin",
+    "bucket": 1,
+    "why": "Covers bitcoin miners' revenue (hashprice) at a five-year low as bitcoin's price drops, a miner/price story about bitcoin."
+  },
+  {
+    "url": "https://decrypt.co/322374/el-salvador-defies-imf-again-fresh-bitcoin-purchase",
+    "kind": "article",
+    "headline": "El Salvador Defies IMF Again With Fresh Bitcoin Purchase Following Loan Review",
+    "expect": "bitcoin",
+    "bucket": 1,
+    "why": "El Salvador buying more bitcoin despite its IMF deal is a sovereign taking a bitcoin position."
+  },
+  {
+    "url": "https://www.coindesk.com/markets/2026/05/28/blackrock-s-bitcoin-etf-sheds-usd528-million-the-second-largest-daily-outflow-on-record",
+    "kind": "article",
+    "headline": "BlackRock's bitcoin ETF sheds $528 million, the second-largest daily outflow on record",
+    "expect": "bitcoin",
+    "bucket": 1,
+    "why": "Reports a near-record daily outflow from BlackRock's spot bitcoin ETF (IBIT), a bitcoin ETF-flow story."
+  },
+  {
+    "url": "https://cointelegraph.com/news/texas-snaps-5m-blackrock-bitcoin-etf-amid-btc-dip",
+    "kind": "article",
+    "headline": "Texas buys the Bitcoin dip, acquiring $5M of BlackRock’s IBIT",
+    "expect": "bitcoin",
+    "bucket": 1,
+    "why": "Texas buying $5 million of a spot bitcoin ETF for its reserve is a government taking a bitcoin position."
+  },
+  {
+    "url": "https://www.cnbc.com/2025/08/08/bitcoin-btc-price-cycle-might-be-breaking.html",
+    "kind": "article",
+    "headline": "A major historical bitcoin cycle that dictates its price might be breaking",
+    "expect": "bitcoin",
+    "bucket": 1,
+    "why": "Analyzes whether bitcoin's halving-driven four-year price cycle is breaking and what it means for when to invest in bitcoin."
+  },
+  {
+    "url": "https://www.fool.com/investing/2026/04/21/1-top-cryptocurrency-to-buy-before-it-soars-236-ov/",
+    "kind": "article",
+    "headline": "1 Top Cryptocurrency to Buy Before It Soars 236% During the Next 18 Months, According to This Billionaire Venture Capitalist",
+    "expect": "bitcoin",
+    "bucket": 2,
+    "why": "The unnamed 'top cryptocurrency to buy' is bitcoin (the first paragraph names it), with Tim Draper forecasting a 236% gain."
+  },
+  {
+    "url": "https://www.fool.com/investing/2026/06/07/heres-the-1-crypto-id-buy-if-i-could-only-pick-1/",
+    "kind": "article",
+    "headline": "Here's the 1 Crypto I'd Buy if I Could Only Pick 1",
+    "expect": "bitcoin",
+    "bucket": 2,
+    "why": "The author's single crypto pick is bitcoin, named in the opening lines, framed as a buy recommendation."
+  },
+  {
+    "url": "https://finance.yahoo.com/news/wisconsin-pension-fund-sold-ibit-233000827.html",
+    "kind": "article",
+    "headline": "Wisconsin Pension Fund Sold IBIT Before Trade Clash",
+    "expect": "bitcoin",
+    "bucket": 2,
+    "why": "A state pension fund exiting its entire stake in BlackRock's spot bitcoin ETF (IBIT) is an institution selling a bitcoin position."
+  },
+  {
+    "url": "https://finance.yahoo.com/markets/crypto/articles/analyst-predicts-35-upside-saylors-185256845.html",
+    "kind": "article",
+    "headline": "Analyst predicts 35% upside for Saylor's Strategy",
+    "expect": "bitcoin",
+    "bucket": 2,
+    "why": "Opens with Saylor's Strategy buying 950 more bitcoin, a treasury-accumulation story about bitcoin."
+  },
+  {
+    "url": "https://finance.yahoo.com/news/saylor-green-dots-mean-secret-001145449.html",
+    "kind": "article",
+    "headline": "What Do Saylor’s Green Dots Mean? Secret Trigger?",
+    "expect": "bitcoin",
+    "bucket": 2,
+    "why": "About Saylor's cryptic post on Strategy's bitcoin accumulation chart hinting at more bitcoin buys and a possible sale."
+  },
+  {
+    "url": "https://fortune.com/2026/06/09/michael-saylor-strategy-math-problem-death-spiral-bitcoin-price/",
+    "kind": "article",
+    "headline": "How Michael Saylor’s preferred stock gamble could trigger a death spiral for Strategy",
+    "expect": "bitcoin",
+    "bucket": 2,
+    "why": "Opens with bitcoin's price drop crushing Strategy, the bitcoin treasury company, and the risk of forced selling."
+  },
+  {
+    "url": "https://finance.yahoo.com/news/michael-saylor-strategy-nears-danger-204426988.html",
+    "kind": "article",
+    "headline": "Michael Saylor’s Strategy Nears “Danger Zone” as mNAV Threatens to Slip Below 1",
+    "expect": "bitcoin",
+    "bucket": 2,
+    "why": "About the bitcoin-focused treasury company Strategy trading near the value of its bitcoin holdings (mNAV near 1)."
+  },
+  {
+    "url": "https://finance.yahoo.com/news/twenty-one-capital-goes-live-212013737.html",
+    "kind": "article",
+    "headline": "Twenty One Capital Goes Live on the NYSE – Now What?",
+    "expect": "bitcoin",
+    "bucket": 2,
+    "why": "Twenty One Capital, a company built around a large bitcoin treasury, debuts on the NYSE amid a bitcoin downturn."
+  },
+  {
+    "url": "https://coinspot.io/en/analysis/miners-approach-the-2028-halving-in-tougher-conditions/",
+    "kind": "article",
+    "headline": "Miners Approach the 2028 Halving in Tougher Conditions",
+    "expect": "bitcoin",
+    "bucket": 2,
+    "why": "About bitcoin miners heading into bitcoin's 2028 halving with thinner margins (the first paragraph names the Bitcoin cycle)."
+  },
+  {
+    "url": "https://www.fool.com/investing/2026/09/06/1-unstoppable-cryptocurrency-to-buy-before-it-soar/",
+    "kind": "article",
+    "headline": "1 Unstoppable Cryptocurrency to Buy Before It Soars 270%",
+    "expect": "bitcoin",
+    "bucket": 2,
+    "why": "The 'unstoppable cryptocurrency to buy' is bitcoin (named in the first paragraph), with a $300,000-by-2030 target."
+  },
+  {
+    "url": "https://www.bbc.com/news/articles/c30mz648nyno",
+    "kind": "article",
+    "headline": "European Central Bank cuts eurozone interest rates",
+    "expect": "euro",
+    "bucket": 3,
+    "why": "An ECB interest-rate cut is a euro monetary-policy decision that directly moves the currency."
+  },
+  {
+    "url": "https://www.cnbc.com/2026/04/30/european-central-bank-april-2026-rate-decision-inflation-stagflation-risk-iran-war.html",
+    "kind": "article",
+    "headline": "European Central Bank keeps rates on hold in the face of inflation threat",
+    "expect": "euro",
+    "bucket": 3,
+    "why": "An ECB decision to hold rates amid rising euro-zone inflation is a euro monetary-policy story."
+  },
+  {
+    "url": "https://www.cnbc.com/2026/09/10/ecb-interest-rate-hike-lagarde-iran.html",
+    "kind": "article",
+    "headline": "European Central Bank hikes interest rates to 2.5% as policymakers see risk of higher inflation, weaker growth",
+    "expect": "euro",
+    "bucket": 3,
+    "why": "An ECB rate hike to 2.5% is a euro monetary-policy decision that directly moves the currency."
+  },
+  {
+    "url": "https://www.cnbc.com/2026/02/04/euro-zone-inflation-january-ecb-disinflation-concerns.html",
+    "kind": "article",
+    "headline": "Euro zone inflation cools to 1.7% in January, flash data shows",
+    "expect": "euro",
+    "bucket": 3,
+    "why": "Euro-zone inflation cooling below the ECB target is read as a signal for ECB rates and therefore the euro."
+  },
+  {
+    "url": "https://www.cnbc.com/2025/03/05/euro-gets-lift-from-german-debt-brake-reform-as-currencies-mired-in-trade-war-fallout.html",
+    "kind": "article",
+    "headline": "Euro hits four-month peak; U.S. dollar languishes on tariff-driven fears",
+    "expect": "euro",
+    "bucket": 3,
+    "why": "Reports the euro hitting a four-month high against the dollar, a direct EUR/USD move."
+  },
+  {
+    "url": "https://www.cnbc.com/2026/08/17/dollar-slips-to-lowest-since-early-june-as-rate-hike-bets-fade.html",
+    "kind": "article",
+    "headline": "Dollar edges lower against euro as markets trim rate hike bets",
+    "expect": "euro",
+    "bucket": 3,
+    "why": "Reports the dollar weakening against the euro as rate-hike bets fade, a direct EUR/USD move."
+  },
+  {
+    "url": "https://finance.yahoo.com/news/explainer-why-euros-rise-1-072150193.html",
+    "kind": "article",
+    "headline": "Why the euro's rise to $1.20 is a big deal",
+    "expect": "euro",
+    "bucket": 3,
+    "why": "Explains the euro climbing above $1.20 against the dollar for the first time since 2021."
+  },
+  {
+    "url": "https://finance.yahoo.com/news/eur-usd-paradox-strong-euro-125440654.html",
+    "kind": "article",
+    "headline": "The EUR/USD Paradox: A Strong Euro in a Weak Economy",
+    "expect": "euro",
+    "bucket": 3,
+    "why": "About EUR/USD rallying to its highest since 2021 despite a weak euro-zone economy."
+  },
+  {
+    "url": "https://finance.yahoo.com/markets/currencies/articles/bofa-cuts-euro-forecasts-sees-150555554.html",
+    "kind": "article",
+    "headline": "BofA cuts euro forecasts, sees stronger dollar in second half on hawkish Fed",
+    "expect": "euro",
+    "bucket": 3,
+    "why": "Bank of America lowering its EUR/USD forecasts is a direct outlook call on the euro's exchange rate."
+  },
+  {
+    "url": "https://finance.yahoo.com/markets/currencies/articles/euro-stages-accidental-coup-against-145352635.html",
+    "kind": "article",
+    "headline": "The Euro Stages an Accidental Coup Against the Almighty Dollar",
+    "expect": "euro",
+    "bucket": 3,
+    "why": "About the euro gaining international share against the dollar as investors move into euro-denominated assets."
+  },
+  {
+    "url": "https://www.bbc.com/sport/football/articles/c5y0xpzjey8o",
+    "kind": "article",
+    "headline": "Aston Villa win Europa League: Emi Martinez plays despite breaking finger",
+    "expect": null,
+    "bucket": 4,
+    "why": "Europa League football result (Aston Villa beat Freiburg); European news with no link to the euro currency or bitcoin."
+  },
+  {
+    "url": "https://www.bbc.com/sport/football/articles/cx2dk6e10pro",
+    "kind": "article",
+    "headline": "Euro 2028: Northern Ireland to host qualifying draw for tournament",
+    "expect": null,
+    "bucket": 4,
+    "why": "Euro 2028 football tournament logistics (the qualifying draw in Belfast); 'Euro' here is the championship, not the currency."
+  },
+  {
+    "url": "https://www.bbc.com/news/articles/c8d87v9v660o",
+    "kind": "article",
+    "headline": "Eurovision 2026: Bulgaria wins with Bangaranga - but the UK comes last",
+    "expect": null,
+    "bucket": 4,
+    "why": "Eurovision Song Contest result; European cultural news with no link to the euro currency or bitcoin."
+  },
+  {
+    "url": "https://www.bbc.com/news/articles/c202wp2rl09o",
+    "kind": "article",
+    "headline": "EU agrees sanctions on Israeli settlers over West Bank violence",
+    "expect": null,
+    "bucket": 4,
+    "why": "EU foreign-policy sanctions on Israeli settlers; EU politics that does not touch the euro currency."
+  },
+  {
+    "url": "https://www.cnbc.com/2025/12/02/mistral-unveils-new-ai-models-in-bid-to-compete-with-openai-google.html",
+    "kind": "article",
+    "headline": "French AI lab Mistral releases new AI models as it looks to keep pace with OpenAI and Google",
+    "expect": null,
+    "bucket": 4,
+    "why": "A French AI company's product launch; European business news with no link to the euro or bitcoin."
+  },
+  {
+    "url": "https://decrypt.co/350883/ethereum-price-swells-as-fusaka-upgrade-goes-live",
+    "kind": "article",
+    "headline": "Ethereum Price Swells as Fusaka Upgrade Goes Live",
+    "expect": null,
+    "bucket": 4,
+    "why": "About Ethereum's Fusaka network upgrade and ETH's price, crypto news whose subject is not bitcoin."
+  },
+  {
+    "url": "https://decrypt.co/310933/solana-pump-fun-pumpswap-exchange",
+    "kind": "article",
+    "headline": "Solana Meme Coin Launchpad Pump.fun Debuts PumpSwap Exchange",
+    "expect": null,
+    "bucket": 4,
+    "why": "About Solana memecoin launchpad Pump.fun launching its own exchange, crypto news whose subject is not bitcoin."
+  },
+  {
+    "url": "https://www.bbc.com/news/articles/cd78lvd94zyo",
+    "kind": "article",
+    "headline": "US passes Genius Act, first major national crypto legislation",
+    "expect": null,
+    "bucket": 4,
+    "why": "The GENIUS Act is stablecoin/crypto-industry legislation, crypto news whose subject is not bitcoin."
+  },
+  {
+    "url": "https://www.fool.com/investing/2026/05/20/this-top-cryptocurrency-could-soar-2610-according/",
+    "kind": "article",
+    "headline": "This Top Cryptocurrency Could Soar 2,600%, According to High-Profile Wall Street Strategist",
+    "expect": null,
+    "bucket": 4,
+    "why": "The unnamed 'top cryptocurrency' is Ethereum (Tom Lee's $62,000 ETH target), not bitcoin, despite the same headline template as bitcoin pieces."
+  },
+  {
+    "url": "https://www.fool.com/investing/2026/09/29/better-crypto-buy-right-now-shiba-inu-vs-solana/",
+    "kind": "article",
+    "headline": "Better Crypto Buy Right Now: Shiba Inu vs. Solana",
+    "expect": null,
+    "bucket": 4,
+    "why": "Compares Shiba Inu and Solana as buys; bitcoin is only mentioned in passing as market context."
+  },
+  {
+    "url": "https://www.fool.com/investing/2026/09/26/bitcoin-is-not-the-only-cryptocurrency-with-a-halv/",
+    "kind": "article",
+    "headline": "Bitcoin Is Not the Only Cryptocurrency With a Halving. Here's Why It's Time to Put Zcash (ZEC) on Your Investment Radar.",
+    "expect": null,
+    "bucket": 4,
+    "why": "Hard negative: the headline names Bitcoin, but the article pitches Zcash (ZEC) as the coin to buy; bitcoin's halving is only the comparison."
+  },
+  {
+    "url": "https://www.bbc.com/news/articles/ce8pdk3l4d2o",
+    "kind": "article",
+    "headline": "Apple says iPhone 17 'most popular ever' as sales soar",
+    "expect": null,
+    "bucket": 4,
+    "why": "Apple iPhone sales results; general tech/business news with no link to bitcoin or the euro."
+  },
+  {
+    "url": "https://www.cnbc.com/2025/11/18/google-announces-gemini-3-as-battle-with-openai-intensifies.html",
+    "kind": "article",
+    "headline": "Google announces Gemini 3 as battle with OpenAI intensifies",
+    "expect": null,
+    "bucket": 4,
+    "why": "Google's Gemini 3 AI model launch; general tech news with no link to bitcoin or the euro."
+  },
+  {
+    "url": "https://www.cnbc.com/2026/09/29/trump-officials-extend-student-loan-interest-rate-discount-deadline.html",
+    "kind": "article",
+    "headline": "Education Department extends deadline for student loan interest rate discount",
+    "expect": null,
+    "bucket": 4,
+    "why": "US federal student-loan autopay discount deadline; personal finance with no link to bitcoin or the euro."
+  },
+  {
+    "url": "https://www.cnbc.com/2026/09/29/trump-accounts-auto-enroll.html",
+    "kind": "article",
+    "headline": "Trump Accounts will auto-enroll children, potentially adding 60 million accounts: Treasury",
+    "expect": null,
+    "bucket": 4,
+    "why": "US Treasury auto-enrolling children in Trump Accounts; personal finance with no link to bitcoin or the euro."
+  },
+  {
+    "url": "https://finance.yahoo.com/news/ask-advisor-pay-off-mortgage-151520264.html",
+    "kind": "article",
+    "headline": "Ask an Advisor: Should I Pay Off a 2.375% Mortgage or Invest in 4% CDs With Retirement 7 Years Away?",
+    "expect": null,
+    "bucket": 4,
+    "why": "A reader's first-person pay-off-the-mortgage vs. CDs question (Reddit-style personal finance) with no link to bitcoin or the euro."
+  }
+]
