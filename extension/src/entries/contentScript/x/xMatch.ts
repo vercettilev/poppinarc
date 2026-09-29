@@ -14,6 +14,44 @@ const CURATED_CATALOG: typeof SOLANA_CATALOG = ARC_EDITION ? [] : SOLANA_CATALOG
 const JUP_TICKERS: typeof SOLANA_JUP_TICKERS = ARC_EDITION ? [] : SOLANA_JUP_TICKERS
 
 /**
+ * THE ARC EDITION'S OWN NAMES, so a headline can carry a chip.
+ *
+ * With the lists above empty, only a typed $BTC ever reached the server,
+ * and a news page writes "Bitcoin", never "$BTC": measured 2026-09-29,
+ * not one headline on the news hosts produced a chip in this edition. These
+ * two rows feed the NAME tier alone. They go into rowByRawTicker and never
+ * into byTicker, so a cashtag still takes the server's by-ticker lane and the
+ * note above stays true. Nothing in TICKER_SYNONYMS, HANDLE_ALIASES or
+ * CONTEXT_ALIASES names "BTC" or "EURC" as a target; one that did would leak
+ * these rows into those tiers.
+ *
+ * "BTC" is the row's ticker because the chip prints it (displayTicker), and
+ * the server lane labels a typed $BTC the same way. "EURC" only as the
+ * ticker, never "euro": that word is the currency in every ECB and FX
+ * headline, and buying a stablecoin under it would be a substitution.
+ */
+const ARC_NAME_ROWS: readonly XMatchRow[] = ARC_EDITION
+  ? [
+      {
+        mint: ARC_CIRCLE_ASSETS[ARC_NETWORK].cirbtc,
+        ticker: "BTC",
+        name: "Circle Wrapped Bitcoin",
+        displayName: "Bitcoin",
+      },
+      { mint: ARC_CIRCLE_ASSETS[ARC_NETWORK].eurc, ticker: "EURC", name: "EURC", displayName: "EURC" },
+    ]
+  : []
+/** Case-sensitive, like every name alias: "bitcoins" and "BITCOIN" stay quiet. */
+const ARC_NAME_ALIASES: ReadonlyArray<readonly [string, string]> = ARC_EDITION
+  ? [
+      ["Bitcoin", "BTC"],
+      ["bitcoin", "BTC"],
+      ["BTC", "BTC"],
+      ["EURC", "EURC"],
+    ]
+  : []
+
+/**
  * Which asset is this tweet about? — answered ON DEVICE.
  *
  * The strip under a tweet exists only if this module says so, and this module
@@ -616,6 +654,8 @@ function buildIndex(): Index {
     // `$WIF` the ticker is typed as `$WIF` the cashtag: strip the sigil.
     byTicker.set(r.ticker.replace(/^\$/, "").toUpperCase(), row)
   }
+  // Name tier only: see ARC_NAME_ROWS for why these never reach byTicker.
+  for (const row of ARC_NAME_ROWS) rowByRawTicker.set(row.ticker, row)
 
   // Wrapped equities: `TSLAx` is the catalog's name for the thing a tweet
   // calls `$TSLA`. Lowercase-x suffix only — SPCX's X is part of the name.
@@ -641,7 +681,7 @@ function buildIndex(): Index {
   }
 
   const aliases: Index["aliases"] = []
-  for (const [alias, ticker] of NAME_ALIASES) {
+  for (const [alias, ticker] of [...NAME_ALIASES, ...ARC_NAME_ALIASES]) {
     const row = rowByRawTicker.get(ticker)
     // A row can leave the catalog; its alias must die with it, silently.
     if (!row) continue

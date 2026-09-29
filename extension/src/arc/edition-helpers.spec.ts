@@ -25,6 +25,7 @@ vi.mock("~/lib/fetchService", () => ({
 const SOLANA_USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 const ARC_USDC = "0x3600000000000000000000000000000000000000"
 const EURC_TESTNET = "0x89b50855aa3be2f677cd6303cec089b5f319d72a"
+const CIRBTC_TESTNET = "0xf0c4a4ce82a5746abaad9425360ab04fbba432bf"
 const WIF = "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm"
 
 async function fresh<T>(path: string, arc: boolean): Promise<T> {
@@ -174,6 +175,58 @@ describe("the X chip's offline lists", () => {
     expect(m.isCuratedMint(WIF)).toBe(false)
     expect(m.isCuratedMint(EURC_TESTNET)).toBe(true)
     expect(m.isCuratedMint(ARC_USDC)).toBe(true)
+  })
+
+  /**
+   * THE NAME TIER, on the exact text of the pages onboarding sends people to
+   * (fetched 2026-09-29): Circle's cirBTC post on X, CNBC's headline, the
+   * r/personalfinance IRS post. None carries a cashtag, so before this tier
+   * the Arc edition put no chip on any of them.
+   */
+  it("Arc: Bitcoin and EURC by name reach Circle's assets, and a cashtag still asks the server", async () => {
+    const m = await fresh<M>("~/entries/contentScript/x/xMatch", true)
+    const btc = (t: string) => m.matchTweet(t, [])
+    for (const t of [
+      "Circle Wrapped Bitcoin is coming. Backed 1:1 by BTC and readily verifiable onchain.",
+      "Bitcoin hits highest level since January at $86,000, as the market debates whether the 'crypto winter' is over",
+      "IRS Issues Bitcoin Guidance: Virtual Currency Is Treated as Property for Federal Tax Purposes",
+      "is it too late to buy bitcoin?",
+      "BTC looked dead a week ago",
+    ]) {
+      expect(btc(t), t).toMatchObject({ tier: "name", row: { mint: CIRBTC_TESTNET, ticker: "BTC" } })
+    }
+    expect(btc("EURC supply passes 300M")).toMatchObject({ tier: "name", row: { mint: EURC_TESTNET } })
+    // The typed cashtag keeps its lane: the offline index still names nothing.
+    expect(m.resolveCashtag("$BTC")).toBeNull()
+    expect(m.matchTweet("$BTC", ["$BTC"])).toBeNull()
+    // The currency, a handle and other assets stay quiet.
+    for (const t of [
+      "Euro slides as ECB holds rates",
+      "EUR/USD breaks 1.20",
+      "Croatia unveils its first euro coin",
+      "eurc",
+      "@bitcoin gm",
+      "bitcoins",
+      "Tesla beats estimates",
+      "Nvidia earnings beat",
+    ]) {
+      expect(btc(t), t).toBeNull()
+    }
+  })
+
+  it("Arc on mainnet names the mainnet contract", async () => {
+    vi.unstubAllEnvs()
+    vi.stubEnv("NEXT_PUBLIC_ARC_EDITION", "true")
+    vi.stubEnv("NEXT_PUBLIC_ARC_NETWORK", "mainnet")
+    vi.resetModules()
+    const m = (await import("~/entries/contentScript/x/xMatch")) as M
+    expect(m.matchTweet("Bitcoin climbs", [])?.row.mint).toBe("0x171a4217b86a807a64eb94757db6849fb4bdbaa0")
+  })
+
+  it("store: the Arc names change nothing", async () => {
+    const m = await fresh<M>("~/entries/contentScript/x/xMatch", false)
+    expect(m.matchTweet("Bitcoin climbs past $85,000", [])?.row.ticker).toBe("WBTC")
+    expect(m.matchTweet("EURC supply passes 300M", [])).toBeNull()
   })
 })
 
