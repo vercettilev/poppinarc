@@ -16,8 +16,15 @@ describe("manifest editions", () => {
     for (const testBuild of [false, true]) {
       const m = getManifest(3, {}, testBuild, "arc") as unknown as Record<string, unknown>
       expect(m.key).toBeUndefined()
-      expect(m.name).toBe("Poppin Arc (demo)")
+      expect(m.name).toBe("Poppin Arc (testnet)")
       expect(String(m.description)).not.toContain("—")
     }
+  })
+
+  it("the mainnet build of the Arc edition says so, and still has no key", () => {
+    const m = getManifest(3, {}, true, "arc", "mainnet") as unknown as Record<string, unknown>
+    expect(m.key).toBeUndefined()
+    expect(m.name).toBe("Poppin on Arc")
+    expect(String(m.short_name).length).toBeLessThanOrEqual(12)
   })
 })

@@ -16,7 +16,9 @@ export default defineConfig(({ mode }) => {
   // The Arc edition (mode "arc", .env.arc): its own name, its own id, its own
   // backend. See getManifest's arcEdition.
   const edition = env.NEXT_PUBLIC_ARC_EDITION === "true" ? "arc" : "solana"
-  const prodLike = mode === "production" || mode === "arc"
+  // Mode "arc-mainnet" (.env.arc-mainnet) is the same edition on Arc mainnet.
+  const arcNetwork = env.NEXT_PUBLIC_ARC_NETWORK === "mainnet" ? "mainnet" : "testnet"
+  const prodLike = mode === "production" || mode === "arc" || mode === "arc-mainnet"
   if (testBuild) {
     console.log(
       "\n  ⚠  TEST BUILD — scripting/tabs/<all_urls> are REQUIRED in this " +
@@ -93,7 +95,7 @@ export default defineConfig(({ mode }) => {
               },
             ],
           }),
-        }, testBuild, edition),
+        }, testBuild, edition, arcNetwork),
         additionalInputs: { html: ["src/entries/welcome/index.html"],scripts: ["src/entries/contentScript/primary/main.tsx", "src/entries/contentScript/urlListener.ts", "src/entries/contentScript/pageWallet.ts", "src/entries/contentScript/previewImg.ts"] },
       }),
       svgr(),

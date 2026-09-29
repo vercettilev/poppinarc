@@ -229,13 +229,16 @@ function grantUpFront(
  * helpers/signinRelay forwards it from whichever extension is listening.
  */
 export type Edition = "solana" | "arc"
+export type ArcNetwork = "mainnet" | "testnet"
 
-function arcEdition(manifest: Record<string, unknown>): Record<string, unknown> {
+function arcEdition(manifest: Record<string, unknown>, network: ArcNetwork): Record<string, unknown> {
   const { key: _key, ...rest } = manifest
   return {
     ...rest,
-    name: "Poppin Arc (demo)",
-    short_name: "Poppin Arc",
+    // Both builds can sit next to each other (and next to the store build),
+    // so the testnet one says so in its name.
+    name: network === "mainnet" ? "Poppin on Arc" : "Poppin Arc (testnet)",
+    short_name: network === "mainnet" ? "Poppin Arc" : "Poppin test",
     description:
       "Buy and sell what you read. A live price under the post, one tap to buy or sell.",
   }
@@ -248,6 +251,8 @@ export function getManifest(
   testBuild = false,
   /** Set by vite from NEXT_PUBLIC_ARC_EDITION. */
   edition: Edition = "solana",
+  /** Set by vite from NEXT_PUBLIC_ARC_NETWORK; only the Arc edition reads it. */
+  arcNetwork: ArcNetwork = "testnet",
 ): chrome.runtime.ManifestV3 {
   const manifest = {
     author: pkg.author,
@@ -276,7 +281,7 @@ export function getManifest(
     }
     const granted = testBuild ? grantUpFront(v3) : v3
     return (
-      edition === "arc" ? arcEdition(granted) : granted
+      edition === "arc" ? arcEdition(granted, arcNetwork) : granted
     ) as chrome.runtime.ManifestV3
   }
 

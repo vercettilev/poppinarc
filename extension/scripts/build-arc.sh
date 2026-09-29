@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 #
-# Build the Arc edition of the extension into ~/v2tests/dist-arc.
+# Build the Arc edition of the extension into ~/v2tests/dist-arc, or its
+# Arc mainnet build into ~/v2tests/dist-arc-mainnet.
 #
-#   ~/projects/poppinarc/extension/scripts/build-arc.sh
+#   ~/projects/poppinarc/extension/scripts/build-arc.sh            (testnet)
+#   ~/projects/poppinarc/extension/scripts/build-arc.sh mainnet    (mainnet)
 #
 # Deliberately NOT ~/v2tests/build.sh: that one builds the live product from
 # ~/projects/commentin-mono and pins the store id. This builds from poppinarc,
@@ -13,18 +15,22 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-DEST="$HOME/v2tests/dist-arc"
+case "${1:-testnet}" in
+  testnet) MODE=arc; DEST="$HOME/v2tests/dist-arc"; NAME="Poppin Arc (testnet)" ;;
+  mainnet) MODE=arc-mainnet; DEST="$HOME/v2tests/dist-arc-mainnet"; NAME="Poppin on Arc" ;;
+  *) echo "usage: build-arc.sh [testnet|mainnet]" >&2; exit 2 ;;
+esac
 
 cd "$REPO"
-echo "→ building the Arc edition from $REPO"
-POPPIN_TEST_BUILD=true npx vite build --mode arc
+echo "→ building the Arc edition ($MODE) from $REPO"
+POPPIN_TEST_BUILD=true npx vite build --mode "$MODE"
 npx vite build -c vite.bridge.config.ts
 
-python3 - "$REPO/dist/manifest.json" <<'PY'
+python3 - "$REPO/dist/manifest.json" "$NAME" <<'PY'
 import json, sys
 m = json.load(open(sys.argv[1]))
 assert "key" not in m, "the Arc build must not carry the store key"
-assert m["name"].startswith("Poppin Arc"), m["name"]
+assert m["name"] == sys.argv[2], m["name"]
 assert m.get("host_permissions"), "test build must grant host permissions"
 print("manifest ok:", m["name"], m["version"])
 PY
