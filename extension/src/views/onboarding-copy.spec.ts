@@ -67,8 +67,9 @@ describe("onboarding speaks the product's language", () => {
 describe("the welcome headline is our angle, and the demo wears WIF's face", () => {
   it("leads with the in-feed trade, keeps the category in the subtitle", () => {
     const step = src("entries/welcome/components/steps/SignInStep.tsx")
-    expect(step).toMatch(/title=\{ARC_EDITION \? "See it\. Tap it\. It's yours\." : "Trade from the tweet\."\}/)
-    expect(step).toMatch(/ARC_EDITION \? "Right where you read\. Powered by Circle\."/)
+    expect(step).toMatch(/title=\{ARC_EDITION \? "Buy and sell what you read\." : "Trade from the tweet\."\}/)
+    // No asset named and no brand: the line has to stay true as markets join Arc.
+    expect(step).toMatch(/ARC_EDITION \? "A live price under the post\. One tap to buy or sell\."/)
     expect(step).toMatch(/Tokens and tokenized stocks\. On X, Reddit, and everywhere else you scroll\./)
     expect(step).not.toMatch(/title="Buy tokens and tokenized stocks\."/)
   })

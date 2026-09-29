@@ -67,21 +67,23 @@ const Disc = ({ children }: { children: React.ReactNode }) => (
 
 /** WIF's own face, baked in (assets/wifLogoDataUri.ts): the first screen waits on nothing. */
 /**
- * THE ARC EDITION SHOWS EUROS, a plan rather than a punt: a person putting
- * money aside for a trip, and the chip under it buying Circle's euro (EURC)
- * in one tap. $EUR resolves to EURC on arc-api's by-ticker lane, so this is
- * the chip the reader will really meet. Drawn, not fetched: the welcome page
- * loads no remote images, the same reason the WIF face is a data URI.
+ * THE ARC EDITION SHOWS A FIRST SMALL BITCOIN BUY. Measured 2026-09-29 in a
+ * five-second test: a $EUR post read as currency exchange ("why buy euros
+ * from a tweet?") and scored lowest, while $BTC was understood at a glance.
+ * $BTC resolves to Circle's bitcoin (cirBTC) on arc-api's by-ticker lane, so
+ * this is the chip the reader will really meet. Drawn, not fetched: the
+ * welcome page loads no remote images, the same reason the WIF face is a
+ * data URI.
  */
 const DEMO = ARC_EDITION
   ? {
-      name: "maya",
-      handle: "@mayalaurent \u00B7 1h",
-      avatar: "linear-gradient(140deg,#E0A6C8,#7A4C9A)",
-      text: "Lisbon in June. Putting a little $EUR aside for it.",
-      ticker: "EUR",
-      price: "$1.1368",
-      change: "+0.2%",
+      name: "jordan",
+      handle: "@jordanwrites \u00B7 1h",
+      avatar: "linear-gradient(140deg,#8FD3B6,#2E7D6B)",
+      text: "Finally bought my first bit of $BTC. Small, but it's a start.",
+      ticker: "BTC",
+      price: "$84,120",
+      change: "+1.4%",
     }
   : {
       name: "ada",
@@ -105,15 +107,15 @@ const ChipIcon = () =>
         height: 24,
         borderRadius: "50%",
         flexShrink: 0,
-        background: "linear-gradient(140deg,#5D8BF4,#1F4FC8)",
+        background: "linear-gradient(140deg,#F7A33B,#E2761B)",
         color: "#fff",
         fontFamily: FONT,
-        fontSize: 13,
+        fontSize: 14,
         fontWeight: 800,
         lineHeight: 1,
       }}
     >
-      {"\u20AC"}
+      {"\u20BF"}
     </Box>
   ) : (
     <Box

@@ -4,12 +4,14 @@ import { FirebaseAuthGuard } from './auth/firebase-auth.guard';
 import { CircleKit } from './circle/kit';
 import { CircleWallets } from './circle/wallets';
 import { AssetController } from './compat/asset.controller';
+import { FilesController } from './compat/files.controller';
 import { NoiseModule } from './compat/noise.controller';
 import { UsersController } from './compat/users.controller';
 import { ArcDepositsController, DEPOSITS, WalletsController } from './compat/wallets.controller';
 import { APP_CONFIG, loadConfig } from './config';
 import { DbService } from './db/db.service';
 import { DepositsService } from './deposits/deposits.service';
+import { FilesStore } from './files/files.store';
 import { HealthController } from './health.controller';
 import { MARKET_SELL_PROBE, MarketService } from './market/market.service';
 import { MARKET } from './market/market.types';
@@ -22,10 +24,11 @@ import { UsersService } from './users/users.service';
 @Module({
   // NoiseModule LAST: its quiet stubs must never shadow a real route.
   imports: [NoiseModule],
-  controllers: [HealthController, UsersController, WalletsController, ArcDepositsController, AssetController],
+  controllers: [HealthController, UsersController, WalletsController, ArcDepositsController, AssetController, FilesController],
   providers: [
     { provide: APP_CONFIG, useFactory: () => loadConfig() },
     DbService,
+    FilesStore,
     FirebaseAuthGuard,
     ArcChain,
     CircleKit,

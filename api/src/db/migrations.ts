@@ -73,4 +73,19 @@ export const MIGRATIONS: { version: number; name: string; sql: string }[] = [
         ADD COLUMN public_wins boolean;
     `,
   },
+  {
+    version: 3,
+    name: 'uploaded pictures',
+    sql: `
+      -- Profile photos, stored already resized (see files/files.store.ts).
+      CREATE TABLE files (
+        id text PRIMARY KEY,
+        uid text NOT NULL,
+        content_type text NOT NULL,
+        bytes bytea NOT NULL,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX files_uid_created ON files (uid, created_at DESC);
+    `,
+  },
 ];

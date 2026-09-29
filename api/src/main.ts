@@ -1,11 +1,19 @@
 import 'reflect-metadata';
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { json, urlencoded } from 'express';
 import { AppModule } from './app.module';
 import { APP_CONFIG, AppConfig } from './config';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // Body parsing is set up by hand so ONE path can take a photo: /upload
+  // carries the picture as base64 JSON (the extension's UserService), which
+  // Nest's default 100 KB limit would refuse. Everything else keeps a small
+  // limit. A parsed body is not parsed twice (body-parser skips it).
+  const app = await NestFactory.create(AppModule, { bodyParser: false });
+  app.use('/api/v1/upload', json({ limit: '11mb' })); // 8 MB of picture as base64
+  app.use(json({ limit: '256kb' }));
+  app.use(urlencoded({ extended: true, limit: '256kb' }));
   const config = app.get<AppConfig>(APP_CONFIG);
 
   // Same prefix as api.poppin.so, so the extension's NEXT_PUBLIC_API_URL
