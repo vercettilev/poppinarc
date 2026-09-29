@@ -65,6 +65,14 @@ export interface AppConfig {
    * turns wallet sign-in off and nothing else.
    */
   walletSessionSecret: string | null;
+  /**
+   * Who holds the wallet of an account that signed in with a wallet (uid
+   * evm:<address>). 'circle': a Circle wallet is made for it, as for Google.
+   * 'own': it trades from the address it signed in with, and every buy and
+   * sell is approved in that wallet (trade/own-wallet.ts). Mainnet runs 'own'
+   * while Circle Wallets is not set up there.
+   */
+  walletAccounts: 'own' | 'circle';
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -112,7 +120,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       .map((s) => s.trim())
       .filter(Boolean),
     walletSessionSecret: walletSecret(env.ARC_WALLET_SESSION_SECRET),
+    walletAccounts: walletAccounts(env.ARC_WALLET_ACCOUNTS),
   };
+}
+
+function walletAccounts(value: string | undefined): 'own' | 'circle' {
+  const v = (real(value) ?? 'circle').toLowerCase();
+  if (v !== 'own' && v !== 'circle') throw new Error(`ARC_WALLET_ACCOUNTS must be own or circle, got "${v}"`);
+  return v;
 }
 
 /** At least 32 characters, or wallet sign-in stays off: a short secret is a guessable one. */

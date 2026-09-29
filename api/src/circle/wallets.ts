@@ -30,6 +30,35 @@ export interface StoredWallet {
   walletId: string;
   address: string;
   accountType: AccountType;
+  /**
+   * The person's own wallet, not a Circle one (ownWalletOf). Nothing may be
+   * sent from it by this service: it only reads it, and every buy and sell
+   * is signed in the wallet itself.
+   */
+  own?: true;
+}
+
+/** The walletId an own wallet answers with; never a Circle id. */
+export const OWN_WALLET_ID = 'own';
+
+/**
+ * An account that signed in with a wallet trades from that wallet when this
+ * deploy says so (ARC_WALLET_ACCOUNTS=own). Its Arc wallet IS its address:
+ * no Circle wallet is made, and every read of "the user's Arc wallet" answers
+ * with it, so balances, positions and activity need no second path.
+ */
+export function ownWalletOf(config: Pick<AppConfig, 'walletAccounts' | 'network'>, uid: string): StoredWallet | null {
+  if (config.walletAccounts !== 'own') return null;
+  const m = /^evm:(0x[0-9a-f]{40})$/.exec(uid);
+  if (!m) return null;
+  return {
+    uid,
+    blockchain: config.network.walletsBlockchain,
+    walletId: OWN_WALLET_ID,
+    address: m[1]!,
+    accountType: 'EOA',
+    own: true,
+  };
 }
 
 export interface ExecuteParams {
@@ -102,6 +131,10 @@ export class CircleWallets {
   }
 
   async find(uid: string, blockchain: string): Promise<StoredWallet | null> {
+    if (blockchain === this.config.network.walletsBlockchain) {
+      const own = ownWalletOf(this.config, uid);
+      if (own) return own;
+    }
     const rows = await this.db.query<{
       uid: string;
       blockchain: string;
@@ -125,6 +158,8 @@ export class CircleWallets {
    * one wallet.
    */
   async ensureArcWallet(uid: string): Promise<StoredWallet> {
+    const own = ownWalletOf(this.config, uid);
+    if (own) return own;
     const chain = this.config.network.walletsBlockchain;
     const existing = await this.find(uid, chain);
     if (existing) return existing;
@@ -162,6 +197,7 @@ export class CircleWallets {
     const existing = await this.find(uid, blockchain);
     if (existing) return existing;
     const arc = await this.ensureArcWallet(uid);
+    if (arc.own) throw new Error('an own wallet has no deposit wallets');
     if (arc.accountType !== 'SCA') return this.createSmartDepositWallet(uid, blockchain);
     const ref = circleRef(uid);
     const res = await this.client

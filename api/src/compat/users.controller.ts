@@ -14,7 +14,7 @@ import {
 import { createHash } from 'node:crypto';
 import { APP_CONFIG, AppConfig } from '../config';
 import { AuthedUser, CurrentUser, FirebaseAuthGuard } from '../auth/firebase-auth.guard';
-import { CircleWallets } from '../circle/wallets';
+import { CircleWallets, ownWalletOf } from '../circle/wallets';
 import { UserRow, UsersService } from '../users/users.service';
 import { lower } from '../trade/types';
 
@@ -188,21 +188,23 @@ export function publicView(row: UserRow) {
 }
 
 /**
- * The signed-in reader's own record. Every account on Arc trades from its
- * Circle wallet, so wallet_mode is always 'custodial': an 'external' answer
- * would send the chip down the Phantom leg, which does not exist here.
+ * The signed-in reader's own record. An account trades either from its
+ * Circle wallet ('custodial') or, when it signed in with a wallet and this
+ * deploy runs ARC_WALLET_ACCOUNTS=own, from that wallet ('external'), which
+ * sends the extension's buy and sell through the wallet window
+ * (trade/own-wallet.ts) instead of the server.
  * No access_token: it only signs the panel's own Firebase instance in, which
  * nothing reads, and this service holds no key that could mint one.
  */
-export function meView(row: UserRow, walletAddress: string | null) {
+export function meView(row: UserRow, walletAddress: string | null, ownAddress: string | null = null) {
   const r = row as RowWithExtras;
   return {
     ...publicView(row),
     wallet_address: walletAddress,
     notifications_enabled: r.notificationsEnabled ?? null,
     public_wins: r.publicWins ?? null,
-    wallet_mode: 'custodial' as const,
-    external_address: null,
+    wallet_mode: ownAddress ? ('external' as const) : ('custodial' as const),
+    external_address: ownAddress,
   };
 }
 
@@ -356,7 +358,7 @@ export class UsersController {
     if (!row.username) row = await this.assignUsername(row, user);
     const address = await this.storedAddress(user.uid);
     if (!address) this.startWallet(user.uid);
-    return meView(row, address);
+    return meView(row, address, ownWalletOf(this.config, user.uid)?.address ?? null);
   }
 
   /**
@@ -426,6 +428,6 @@ export class UsersController {
       await this.users.setProfile(uid, profile);
     }
     const fresh = (await this.users.get(uid)) ?? row;
-    return meView(fresh, await this.storedAddress(uid));
+    return meView(fresh, await this.storedAddress(uid), ownWalletOf(this.config, uid)?.address ?? null);
   }
 }

@@ -515,6 +515,21 @@ type Trade = ExecuteRequest & {
   sendBy: number;
 };
 
+/** A swap built for a wallet that signs for itself; see prepareForWallet. */
+export interface WalletSwap {
+  /** The pinned KyberSwap router the calldata calls, and the spender to approve. */
+  router: Address;
+  callData: Address;
+  /** The calldata's own floor: less than this and the swap reverts. */
+  minOut: bigint;
+  /** What the route promised when it was priced. */
+  amountOut: bigint;
+  /** What the wallet already allows the router to spend of the input token. */
+  allowance: bigint;
+  priceImpactPct: number;
+  route: string[];
+}
+
 type SendOutcome = { state: 'sent' } | { state: 'not-sent' | 'unknown'; error: unknown };
 
 @Injectable()
@@ -623,6 +638,64 @@ export class KyberRouter implements SwapRouter {
       return await this.exclusive(`${trade.walletAddress}:${trade.tokenIn}`, trade.sendBy - Date.now(), () =>
         this.run(trade),
       );
+    } catch (e) {
+      throw toHttp(e);
+    }
+  }
+
+  /**
+   * A swap for a wallet this service does not hold (trade/own-wallet.ts): the
+   * same route, the same build and the same calldata checks as execute, and
+   * nothing sent, because the person's own wallet sends it. Any pair is
+   * allowed here, two of Circle's own assets included, since App Kit Swap
+   * can only send from a Circle wallet.
+   */
+  async prepareForWallet(req: {
+    tokenIn: Address;
+    tokenOut: Address;
+    amountInRaw: bigint;
+    walletAddress: Address;
+    actionId: string;
+  }): Promise<WalletSwap> {
+    const tokenIn = lower(req.tokenIn);
+    const tokenOut = lower(req.tokenOut);
+    const walletAddress = lower(req.walletAddress);
+    if (
+      !this.enabled ||
+      !ADDRESS.test(tokenIn) ||
+      !ADDRESS.test(tokenOut) ||
+      tokenIn === tokenOut ||
+      NATIVE.has(tokenIn) ||
+      NATIVE.has(tokenOut)
+    ) {
+      throw new UnprocessableEntityException(TRADE_ERRORS.noRoute);
+    }
+    if (req.amountInRaw <= 0n) throw new BadRequestException(TRADE_ERRORS.tooSmall);
+    const deadline = Date.now() + this.opts.executeBudgetMs;
+    const t: Trade = {
+      uid: '',
+      walletId: '',
+      walletAddress,
+      tokenIn,
+      tokenOut,
+      amountInRaw: req.amountInRaw,
+      actionId: req.actionId,
+      deadline,
+      sendBy: deadline - this.opts.sendReserveMs,
+    };
+    try {
+      const p = await this.price(tokenIn, tokenOut, req.amountInRaw, true, t.sendBy);
+      const b = await this.build(p, t);
+      const allowance = await this.allowance(tokenIn, walletAddress, p.router);
+      return {
+        router: p.router,
+        callData: b.callData,
+        minOut: b.minOut,
+        amountOut: p.amountOut,
+        allowance,
+        priceImpactPct: priceImpactPct(p.summary.amountInUsd, p.summary.amountOutUsd, p.feeBps),
+        route: routeLabels(p.summary.route),
+      };
     } catch (e) {
       throw toHttp(e);
     }

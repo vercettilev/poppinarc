@@ -496,7 +496,9 @@ export class DepositsService implements OnApplicationBootstrap, OnModuleDestroy 
   async depositAddresses(uid: string): Promise<DepositAddressesView> {
     const arc = await this.wallets.ensureArcWallet(uid);
     const others: DepositAddressesView['others'] = [];
-    for (const net of this.nets) {
+    // A person's own wallet is not ours to sweep from: USDC for it arrives on
+    // Arc, at the address it signed in with, and nowhere else.
+    for (const net of arc.own ? [] : this.nets) {
       try {
         const w =
           net.kind === 'solana'

@@ -128,6 +128,8 @@ export const TRADE_COPY = {
   unavailable: 'Trading is unavailable for a moment. Nothing was charged.',
   signatureRequired: 'signature is required',
   mintRequired: 'mint is required',
+  /** A buy or sell sent here for an account that signs its own trades (trade/own-wallet.ts). */
+  ownWallet: 'This account trades from its own wallet. Approve the trade in your wallet.',
 } as const;
 
 /**
@@ -265,6 +267,7 @@ export class TradeService {
     // "Add USDC", which the insufficient sentence opens. No Circle call here:
     // wallets are made at sign-in and on the deposit screen.
     const wallet = await this.infra(this.arcWallet(uid));
+    if (wallet?.own) throw new ConflictException(TRADE_COPY.ownWallet);
     const have = wallet ? await this.readBalance(wallet.address as Address, usdc) : 0n;
     if (have !== null) {
       const spendable = this.spendableUsdc(have);
@@ -313,6 +316,7 @@ export class TradeService {
     const router = this.routerFor(mint, usdc);
     const wallet = await this.infra(this.arcWallet(uid));
     if (!wallet) throw new BadRequestException(TRADE_ERRORS.walletNotFound);
+    if (wallet.own) throw new ConflictException(TRADE_COPY.ownWallet);
 
     let have = await this.readBalance(wallet.address as Address, mint);
     if (have !== null && have < amountInRaw && this.balanceRetryMs > 0) {

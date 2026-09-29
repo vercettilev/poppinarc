@@ -380,6 +380,49 @@ describe('KyberRouter.quote', () => {
   });
 });
 
+describe('KyberRouter.prepareForWallet', () => {
+  it("builds a pair of Circle's own assets for a wallet that signs for itself, and sends nothing", async () => {
+    const { router, readContract, wallets } = setup();
+    mockKyber({ routes: (q) => routesReply(q, 21_990_000n), build: (body) => buildReply(body) });
+    readContract.mockResolvedValue(0n);
+    const s = await router.prepareForWallet({
+      tokenIn: USDC,
+      tokenOut: EURC,
+      amountInRaw: 25_000_000n,
+      walletAddress: WALLET,
+      actionId: 'act-own',
+    });
+
+    expect(s.router).toBe(ROUTER);
+    expect(s.amountOut).toBe(21_990_000n);
+    expect(s.allowance).toBe(0n);
+    expect(s.minOut).toBe((21_990_000n * 9_900n) / 10_000n);
+    const d = swapDescription(s.callData)!;
+    expect(d.dstReceiver).toBe(WALLET);
+    expect(d.amount).toBe(25_000_000n);
+    expect(readContract).toHaveBeenCalledWith(expect.objectContaining({ functionName: 'allowance', args: [WALLET, ROUTER] }));
+    expect(wallets.execute).not.toHaveBeenCalled();
+  });
+
+  it('refuses a build that would pay anyone but the wallet', async () => {
+    const { router, readContract } = setup();
+    mockKyber({ routes: (q) => routesReply(q, 21_990_000n), build: (body) => buildReply(body, {}, { dstReceiver: OTHER }) });
+    readContract.mockResolvedValue(0n);
+    const e = await rejection(
+      router.prepareForWallet({ tokenIn: USDC, tokenOut: EURC, amountInRaw: 25_000_000n, walletAddress: WALLET, actionId: 'act-own' }),
+    );
+    expect(e).toBeInstanceOf(UnprocessableEntityException);
+  });
+
+  it('prepares nothing on testnet, where KyberSwap does not run', async () => {
+    const { router } = setup({ ARC_NETWORK: 'testnet' });
+    const e = await rejection(
+      router.prepareForWallet({ tokenIn: USDC, tokenOut: EURC, amountInRaw: 1n, walletAddress: WALLET, actionId: 'a' }),
+    );
+    expect(e).toBeInstanceOf(UnprocessableEntityException);
+  });
+});
+
 describe('KyberRouter.execute', () => {
   it('skips the approve when the allowance already covers the trade', async () => {
     const { router, readContract, wallets, chain, saved } = setup();

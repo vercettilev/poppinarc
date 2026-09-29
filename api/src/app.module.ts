@@ -20,13 +20,24 @@ import { MARKET } from './market/market.types';
 import { CircleSwapRouter } from './routers/circle-swap.router';
 import { KyberRouter } from './routers/kyber.router';
 import { ActionsStore } from './trade/actions';
+import { OwnWalletTrades } from './trade/own-wallet';
+import { OwnWalletController } from './trade/own-wallet.controller';
 import { SWAP_ROUTERS, TradeService } from './trade/trade.service';
 import { UsersService } from './users/users.service';
 
 @Module({
   // NoiseModule LAST: its quiet stubs must never shadow a real route.
   imports: [NoiseModule],
-  controllers: [HealthController, UsersController, WalletsController, ArcDepositsController, AssetController, FilesController, WalletAuthController],
+  controllers: [
+    HealthController,
+    UsersController,
+    WalletsController,
+    ArcDepositsController,
+    AssetController,
+    FilesController,
+    WalletAuthController,
+    OwnWalletController,
+  ],
   providers: [
     { provide: APP_CONFIG, useFactory: () => loadConfig() },
     DbService,
@@ -56,6 +67,7 @@ import { UsersService } from './users/users.service';
     MarketService,
     { provide: MARKET, useExisting: MarketService },
     TradeService,
+    OwnWalletTrades,
     DepositsService,
     { provide: DEPOSITS, useExisting: DepositsService },
   ],

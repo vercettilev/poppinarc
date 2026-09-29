@@ -617,7 +617,7 @@ function walletView(w: StoredWallet) {
     id: w.walletId,
     user_id: w.uid,
     public_key: lower(w.address),
-    wallet_type: 'circle',
+    wallet_type: w.own ? 'external' : 'circle',
     is_active: true,
   };
 }
