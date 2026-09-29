@@ -105,11 +105,14 @@ export interface XMatchRow {
 /** "address": the tweet printed the token's contract address and the
  *  server's by-mint gate described it (xStrip's address lane). The most
  *  exact tier there is, and the only one decided off the device. */
-export type XMatchTier = "cashtag" | "dollar" | "handle" | "name" | "context" | "address"
+/** "ai": no rule placed the post, and the AI reader did (arc/readerClient.ts). */
+export type XMatchTier = "cashtag" | "dollar" | "handle" | "name" | "context" | "address" | "ai"
 
 export interface XMatch {
   row: XMatchRow
   tier: XMatchTier
+  /** The AI reader's one line on why this post is about this asset; tier "ai" only. */
+  reason?: string
 }
 
 /**

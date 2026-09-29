@@ -4,7 +4,7 @@ import { FIRST_TRADE_KEY } from "~/helpers/invite"
 import { ensureBrandFont } from "~/helpers/brandFont"
 import { sweepOrphanRoots, watchForStrangers } from "~/helpers/orphanSweep"
 import { PAGE_CARD_ENABLED } from "~/config/features"
-import { CAP } from "~/config/edition"
+import { ARC_EDITION, CAP } from "~/config/edition"
 import { compactUsd } from "~/helpers/tradeCard"
 import { CLIP_KEY, DEFAULT_CLIP, readClip } from "~/helpers/clip"
 import { CHART_VIEW_KEY } from "~/helpers/chartView"
@@ -938,6 +938,8 @@ if (!alreadyLoaded) {
     myTrades: (mint) => myTradesAsset(mint).then((r) => r.trades ?? []),
     // The slow lane for unknown cashtags — server-resolved, gate-approved.
     resolveTicker: (ticker) => byTickerAsset(ticker).then((r) => r.mint),
+    // The Arc edition's AI reader, for posts no rule placed (arc/readerClient.ts).
+    readText: ARC_EDITION ? (id, text) => import("~/arc/readerClient").then((m) => m.readText(id, text)) : undefined,
     // Spendable USD for the order sheet — the one number a reader composing
     // a standing order needs and the chip never had. Read once per page, and
     // only after a sheet opens: /positions is 8.6s cold.

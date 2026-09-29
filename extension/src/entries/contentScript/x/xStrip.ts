@@ -93,7 +93,7 @@ import { createChipSeenWatch } from "~/helpers/chipSeen"
 import { claimHost } from "~/helpers/orphanSweep"
 import type { PendingFill } from "~/helpers/orderFillWatch"
 import { proofText } from "~/helpers/tradeProof"
-import { isCuratedMint, matchTweet, type XMatch } from "./xMatch"
+import { isCuratedMint, matchTweet, type XMatch, type XMatchRow } from "./xMatch"
 import {
   readXStripConfigCache,
   writeXStripConfigCache,
@@ -378,6 +378,11 @@ export interface XStripDeps {
    * arriving here is one the whole money path will accept.
    */
   resolveTicker?(ticker: string): Promise<string | null>
+  /**
+   * The AI reader, for a post no rule placed (arc/readerClient.ts). Null is
+   * "not about an asset we trade", and the post stays without a chip.
+   */
+  readText?(id: string, text: string): Promise<{ row: XMatchRow; reason: string } | null>
   /**
    * The signed-in reader's own trades on this mint, oldest or newest first
    * (the chart re-sorts nothing; it only places). Absent or failing reads
@@ -1356,7 +1361,10 @@ export function createXStrip(deps: XStripDeps): XStripController {
         return
       }
 
-      if (!match) return
+      if (!match) {
+        if (deps.readText) askReader(cell, article, facts)
+        return
+      }
 
       if (match.tier === "name" && !nameShownFor.has(facts.id)) {
         /**
@@ -1406,6 +1414,28 @@ export function createXStrip(deps: XStripDeps): XStripController {
       return
     }
     proceed()
+  }
+
+  /**
+   * THE READER LANE: no rule placed this post, so the AI reader is asked
+   * whether it is about an asset we trade, and why. Nothing is drawn while it
+   * thinks, and the same recycled-cell checks as the other lanes run before
+   * anything mounts: the cell may hold another post by the time it answers.
+   */
+  function askReader(cell: Element, article: Element, facts: TweetFacts): void {
+    void deps
+      .readText!(facts.id, facts.text)
+      .then((hit) => {
+        if (!hit) return
+        if (!cell.isConnected || cell.getAttribute(ID_ATTR) !== facts.id) return
+        if (stripOf(cell)) return
+        if (deps.disabledMints.has(hit.row.mint)) return
+        sweep.named.add(`${hit.row.ticker} by ai`)
+        mountStrip(cell, article, { row: hit.row, tier: "ai", reason: hit.reason }, facts.url)
+      })
+      .catch(() => {
+        // No answer is the answer: the post keeps no chip, as before the reader.
+      })
   }
 
   /**
@@ -3433,6 +3463,19 @@ export function createXStrip(deps: XStripDeps): XStripController {
           display: flex; align-items: center; gap: 5px;
         }
         .callr[hidden] { display: none; }
+        /* The AI reader's line: why this post got this chip, when no rule
+           placed it. Quiet like the caller line, with the word that says
+           who is talking. */
+        .why {
+          font-size: 12px; font-weight: 500; color: ${JUICE.text3};
+          padding: 6px 2px 0;
+          display: flex; align-items: baseline; gap: 6px;
+        }
+        .why[hidden] { display: none; }
+        .why .ai {
+          font-size: 10.5px; font-weight: 800; letter-spacing: .06em;
+          color: ${JUICE.accent};
+        }
         .callr b {
           color: ${JUICE.text2}; font-weight: 800;
           font-variant-numeric: tabular-nums;
@@ -4343,7 +4386,14 @@ export function createXStrip(deps: XStripDeps): XStripController {
           <span class="end"></span>
         </div>
         <div class="callr" hidden></div>
+        <div class="why" hidden><span class="ai">AI</span><span class="because"></span></div>
       </div>`
+
+    if (match.reason) {
+      const why = shadow.querySelector<HTMLElement>(".why")!
+      why.querySelector<HTMLElement>(".because")!.textContent = match.reason
+      why.hidden = false
+    }
 
     const px = shadow.querySelector<HTMLElement>(".px")!
     const chg = shadow.querySelector<HTMLElement>(".chg")!
