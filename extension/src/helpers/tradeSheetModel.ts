@@ -483,8 +483,11 @@ export function viewTradeSheet(args: {
                 : // The same whole-dollar cover amount the address screen
                   // asks for ("Send at least $26"); two numbers for one
                   // shortfall read as a mistake.
+                  // The Arc door carries no figure: measured 2026-09-29, "Add $26"
+                  // under a $25 buy read to every reader as a card charge with an
+                  // unexplained $1 fee. The Add money screen names the amount.
                   ARC_EDITION
-                  ? `Add $${topUpAmount(shortBy, "cover")}`
+                  ? "Add money"
                   : `Deposit $${topUpAmount(shortBy, "cover")} USDC`,
           tone: "fund",
           armed: true,

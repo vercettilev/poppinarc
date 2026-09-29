@@ -42,6 +42,7 @@ export const StepFrame = ({
   note,
   actions,
   markInHero = false,
+  badge,
 }: {
   title: string
   subtitle?: string
@@ -66,6 +67,8 @@ export const StepFrame = ({
    * being the echo rather than the statement.
    */
   markInHero?: boolean
+  /** Between the mark and the title: a small confirmation, such as money that just arrived. */
+  badge?: ReactNode
 }) => (
   <Box
     sx={{
@@ -185,6 +188,8 @@ export const StepFrame = ({
           />
         </Box>
       )}
+
+      {badge && <Box sx={{ mb: 2.25 }}>{badge}</Box>}
 
       <Typography
         component="h1"

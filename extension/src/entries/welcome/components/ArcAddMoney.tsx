@@ -3,6 +3,8 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import logo from "~/assets/logo.png"
 import { USDC_MINT } from "~/arc/chain"
+import { CNBC_ICON_URI, REDDIT_ICON_URI } from "~/assets/tryPlaceIcons"
+import { ARC_TRY_PLACES, type TryPlace } from "~/config/onboarding"
 import { depositCardView, pillAddress, useDepositAddresses } from "~/arc/depositAddresses"
 import { QrCode } from "~/components/QrCode"
 import { useMyWallet, useWalletTokens } from "~/hooks/useWallet"
@@ -28,7 +30,13 @@ import { QuietAction, StepFrame } from "./StepFrame"
  * literal. Everything else is plain (Lev, 2026-09-28: no "dollar", no
  * "trade", short, classy, obvious).
  *
- * `onDone` is ShowMeStep's handoff to X, which owns the telemetry and the
+ * EVERY WAY OUT ENDS ON "Try Poppin": money that landed, a skip, or a reader
+ * who already had money. It offers one real post on each kind of page the
+ * chip runs on (ARC_TRY_PLACES), each drawn with its site's own icon, rather
+ * than one fixed X page: Lev, 2026-09-29, "gerçekten çipin çalıştığı birkaç
+ * alternatif".
+ *
+ * `onDone(url)` is ShowMeStep's handoff, which owns the telemetry and the
  * navigation; this screen never leaves the page on its own.
  */
 const FONT = "PoppinSans, -apple-system, 'Segoe UI', Roboto, sans-serif"
@@ -77,7 +85,7 @@ export function groupedAddress(a: string): string {
 export const money = (n: number): string =>
   `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
-export function ArcAddMoney({ onDone }: { onDone: () => void | Promise<void> }) {
+export function ArcAddMoney({ onDone }: { onDone: (to?: string) => void | Promise<void> }) {
   const queryClient = useQueryClient()
   const { data: walletInfo } = useMyWallet()
   const { data: deposit } = useDepositAddresses(true)
@@ -92,7 +100,8 @@ export function ArcAddMoney({ onDone }: { onDone: () => void | Promise<void> }) 
      there would announce money the reader already had as just arrived. */
   const [start, setStart] = useState<number | null>(null)
   const [showWithoutStart, setShowWithoutStart] = useState(false)
-  const [autoLeaving, setAutoLeaving] = useState(false)
+  /** Why the reader is on "Try Poppin" without money having landed here. */
+  const [trying, setTrying] = useState<null | "already" | "skipped">(null)
   const [landed, setLanded] = useState<number | null>(null)
   const [skipping, setSkipping] = useState(false)
   const [copied, setCopied] = useState<string | null>(null)
@@ -117,11 +126,11 @@ export function ArcAddMoney({ onDone }: { onDone: () => void | Promise<void> }) 
     return () => window.clearTimeout(t)
   }, [])
 
-  const leave = async () => {
+  const leave = async (to?: string) => {
     if (skipping) return
     setSkipping(true)
     try {
-      await onDone()
+      await onDone(to)
     } catch {
       // Still here: the buttons work again.
       setSkipping(false)
@@ -129,10 +138,11 @@ export function ArcAddMoney({ onDone }: { onDone: () => void | Promise<void> }) 
     // On success the page is being replaced; the buttons stay disabled.
   }
 
-  /* Somebody who already has money has nothing to do here and is sent on,
-     once, behind the spinner rather than past a screen that flashes. */
+  /* Somebody who already has money has nothing to add and goes straight to
+     "Try Poppin", from behind the spinner rather than past a screen that
+     flashes. */
   useEffect(() => {
-    if (landed !== null || autoLeaving) return
+    if (landed !== null || trying !== null) return
     if (held === null) {
       if (tokensUnreadable) setShowWithoutStart(true)
       return
@@ -141,8 +151,7 @@ export function ArcAddMoney({ onDone }: { onDone: () => void | Promise<void> }) 
       setStart(held)
       if (held >= ALREADY_FUNDED_USDC) {
         track("already_funded")
-        setAutoLeaving(true)
-        void onDone()
+        setTrying("already")
       } else {
         track("shown")
       }
@@ -158,9 +167,9 @@ export function ArcAddMoney({ onDone }: { onDone: () => void | Promise<void> }) 
         // Nothing listening is fine; the chips catch up on their own.
       }
     }
-  }, [held, tokensUnreadable, landed, start, autoLeaving])
+  }, [held, tokensUnreadable, landed, start, trying])
 
-  const waiting = landed === null && !autoLeaving
+  const waiting = landed === null && trying === null
 
   const fallback = String(
     (walletInfo as { depositAddress?: unknown } | undefined)?.depositAddress ??
@@ -207,7 +216,7 @@ export function ArcAddMoney({ onDone }: { onDone: () => void | Promise<void> }) 
      "Add money" screen that vanishes a moment later for a funded reader
      would be a flicker, not a step. A slow or failed read shows the
      screen after FIRST_READ_WAIT_MS all the same. */
-  if (autoLeaving || (start === null && !showWithoutStart && landed === null)) {
+  if (start === null && !showWithoutStart && landed === null && trying === null) {
     return (
       <Box sx={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
         <CircularProgress size={26} sx={{ color: ACCENT }} />
@@ -215,33 +224,78 @@ export function ArcAddMoney({ onDone }: { onDone: () => void | Promise<void> }) 
     )
   }
 
-  if (landed !== null) {
+  if (landed !== null || trying !== null) {
     return (
       <StepFrame
-        title="It's here."
-        subtitle={`${money(landed)} added. Tap what you see.`}
-        hero={<Arrived />}
-        actions={
-          <>
-            <Button onClick={() => void leave()} disabled={skipping} sx={PRIMARY_SX}>
-              Go to X
-            </Button>
-            {tabId !== null && (
-              <Button onClick={openPanel} sx={SECONDARY_SX}>
-                Open Poppin
-              </Button>
-            )}
-          </>
+        title="Try Poppin."
+        subtitle={
+          landed !== null
+            ? `${money(landed)} added. Open a post and tap Buy.`
+            : trying === "already"
+              ? "Open a post and tap Buy."
+              : "Open a post and see the price under it."
         }
-      />
+        badge={landed !== null ? <Arrived /> : undefined}
+        actions={
+          tabId !== null ? (
+            <Button onClick={openPanel} sx={SECONDARY_SX}>
+              Open Poppin
+            </Button>
+          ) : undefined
+        }
+      >
+        <Box sx={{ display: "grid", gap: 1.25 }}>
+          {ARC_TRY_PLACES.map((place) => (
+            <Box
+              key={place.id}
+              component="button"
+              type="button"
+              disabled={skipping}
+              onClick={() => {
+                track(`try_${place.id}`)
+                void leave(place.url)
+              }}
+              sx={ROW_SX}
+            >
+              <PlaceIcon id={place.id} />
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography sx={{ fontFamily: FONT, fontSize: 14.5, fontWeight: 600, color: "#EAF2FB" }}>
+                  {place.where}
+                </Typography>
+                <Typography
+                  sx={{ fontFamily: FONT, fontSize: 12.5, color: "#8CA3BD", mt: 0.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                >
+                  {place.what}
+                </Typography>
+              </Box>
+              <Box component="span" sx={{ color: "#74849A", fontSize: 20 }}>
+                {"\u203A"}
+              </Box>
+            </Box>
+          ))}
+        </Box>
+      </StepFrame>
     )
   }
 
   return (
     <StepFrame
       title="Add money"
-      subtitle="Scan or copy. It lands in seconds."
-      actions={<QuietAction label="Look around first" disabled={skipping} onClick={() => { track("skipped"); void leave() }} />}
+      // Where the money comes from, before the address: measured 2026-09-29,
+      // every reader who saw "Add money" expected a card, and called the USDC
+      // address that followed a bait-and-switch. A card door arrives with
+      // App Kit Onramp; until then this line says what works today.
+      subtitle="From an exchange or another wallet. It lands in seconds."
+      actions={
+        <QuietAction
+          label="Look around first"
+          disabled={skipping}
+          onClick={() => {
+            track("skipped")
+            setTrying("skipped")
+          }}
+        />
+      }
     >
       {view.arcAddress ? (
         <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
@@ -374,11 +428,44 @@ export function ArcAddMoney({ onDone }: { onDone: () => void | Promise<void> }) 
   )
 }
 
+/** X's mark from its official path; CNBC's and Reddit's own favicons (assets/tryPlaceIcons). */
+function PlaceIcon({ id }: { id: TryPlace["id"] }) {
+  if (id === "x") {
+    return (
+      <Box
+        aria-hidden="true"
+        sx={{
+          width: 36,
+          height: 36,
+          borderRadius: "10px",
+          flexShrink: 0,
+          display: "grid",
+          placeItems: "center",
+          backgroundColor: "#000",
+          boxShadow: "inset 0 0 0 1px rgba(255,255,255,.14)",
+        }}
+      >
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="#FFFFFF">
+          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+        </svg>
+      </Box>
+    )
+  }
+  return (
+    <Box
+      component="img"
+      src={id === "news" ? CNBC_ICON_URI : REDDIT_ICON_URI}
+      alt=""
+      sx={{ width: 36, height: 36, borderRadius: id === "news" ? "10px" : 0, flexShrink: 0, display: "block" }}
+    />
+  )
+}
+
 const Arrived = () => (
   <Box
     sx={{
-      width: 64,
-      height: 64,
+      width: 52,
+      height: 52,
       borderRadius: "50%",
       display: "grid",
       placeItems: "center",
@@ -390,7 +477,7 @@ const Arrived = () => (
       "@media (prefers-reduced-motion: reduce)": { animation: "none" },
     }}
   >
-    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M5 12.5l4.5 4.5L19 7.5" />
     </svg>
   </Box>
@@ -426,6 +513,7 @@ const ROW_SX = {
   backgroundColor: "rgba(255,255,255,.03)",
   boxShadow: "inset 0 0 0 1px rgba(255,255,255,.07)",
   "&:hover": { backgroundColor: "rgba(255,255,255,.06)" },
+  "&:disabled": { opacity: 0.6, cursor: "default" },
 } as const
 
 const ICON_SX = {

@@ -79,7 +79,9 @@ describe("why the event had to move", () => {
 describe("the live flow's handoff", () => {
   it("was found, and is the step that puts the reader on a real page", () => {
     expect(handoff.length).toBeGreaterThan(200)
-    expect(handoff).toContain("window.location.href = ONBOARDING_X_URL")
+    expect(handoff).toContain("window.location.href = to")
+    // X stays the default; the Arc edition's "Try Poppin" passes the page chosen.
+    expect(showMe).toContain("const handoff = async (to: string = ONBOARDING_X_URL) =>")
   })
 
   it("counts itself, by the name the corridor already uses", () => {
@@ -98,7 +100,7 @@ describe("the live flow's handoff", () => {
   it("names the page it actually opens, rather than a copy of it", () => {
     // A literal here would keep reporting x.com the day the destination
     // moves, which is the one thing this event exists to know.
-    expect(handoff).toContain("new URL(ONBOARDING_X_URL).hostname")
+    expect(handoff).toContain("new URL(to).hostname")
     // And what that resolves to today, executed.
     expect(new URL(ONBOARDING_X_URL).hostname).toBe("x.com")
   })
@@ -107,7 +109,7 @@ describe("the live flow's handoff", () => {
     // Same-tab navigation: after the assignment there is no context left to
     // send from. Ordering is the whole difference between a row and none.
     const sent = handoff.indexOf('event: "onboarding_handoff"')
-    const gone = handoff.indexOf("window.location.href = ONBOARDING_X_URL")
+    const gone = handoff.indexOf("window.location.href = to")
     expect(sent).toBeGreaterThan(-1)
     expect(gone).toBeGreaterThan(-1)
     expect(sent).toBeLessThan(gone)

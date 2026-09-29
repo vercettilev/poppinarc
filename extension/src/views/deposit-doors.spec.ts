@@ -107,7 +107,8 @@ describe("every door that brings money in says the same verb", () => {
     ]) {
       expect(stripComments(read(f)), f).toMatch(/ARC_EDITION\s*\?\s*"Add money"/)
     }
-    expect(stripComments(read("helpers/tradeSheetModel.ts"))).toMatch(/`Add \$\$\{topUpAmount\(shortBy, "cover"\)\}`/)
+    // No figure on the Arc door: "Add $26" under a $25 buy read as a card charge plus a fee.
+    expect(stripComments(read("helpers/tradeSheetModel.ts"))).not.toMatch(/`Add \$\$\{/)
     expect(stripComments(read("entries/welcome/components/ArcAddMoney.tsx"))).toMatch(/title="Add money"/)
   })
 

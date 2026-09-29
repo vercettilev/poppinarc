@@ -74,7 +74,12 @@ export const ShowMeStep = () => {
     }
   }, [])
 
-  const handoff = async () => {
+  /* `to` is where the reader chose to go: the Arc edition's "Try Poppin"
+     offers X, a news page and Reddit (ARC_TRY_PLACES). Everything else still
+     hands off to ONBOARDING_X_URL. */
+  const handoff = async (to: string = ONBOARDING_X_URL) => {
+    // A click handler's event is not a place: anything but a string goes to X.
+    if (typeof to !== "string") to = ONBOARDING_X_URL
     /* NOTHING TO ARM HERE ANY MORE. This used to set the coach's one-shot
        flag, which made the coach a reward for reaching this screen — and
        measured 2026-09-23, only 9 people ever did, against 140 shown a
@@ -101,7 +106,7 @@ export const ShowMeStep = () => {
     try {
       let host = ""
       try {
-        host = new URL(ONBOARDING_X_URL).hostname
+        host = new URL(to).hostname
       } catch {
         host = "invalid"
       }
@@ -118,7 +123,7 @@ export const ShowMeStep = () => {
     // Same tab: this page has nothing left to say, and the browser's back
     // button returning here is handled (a signed-in visitor lands on this
     // screen again, whose button just reopens X).
-    window.location.href = ONBOARDING_X_URL
+    window.location.href = to
   }
 
   const track = (action: string) => {

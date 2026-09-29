@@ -36,7 +36,7 @@ export const ONBOARDING_V2: boolean = flagOn(
  * replaces this the moment it exists.
  */
 export const ONBOARDING_X_URL = ARC_EDITION
-  ? "https://x.com/search?q=%24BTC"
+  ? "https://x.com/circle/status/2039734602281918874"
   : "https://x.com/solana/status/2100237359380099544"
 /* @solana's own post. It carries no $SOL cashtag and does not need one:
    the account is in xMatch's handle aliases and that tier is author-first,
@@ -45,10 +45,45 @@ export const ONBOARDING_X_URL = ARC_EDITION
    it can vanish; a Poppin-owned $SOL post replaces it the day one exists.
 
    THE ARC EDITION cannot land there: @solana resolves to SOL, which is not
-   on Arc, so the chip under it would take itself down. It lands on the
-   $BTC search instead, where $BTC resolves to Circle's Bitcoin on Arc on
-   every post, until a Poppin post with a $EUR or $BTC cashtag exists to
-   point at. */
+   on Arc, so the chip under it would take itself down. It lands on Circle's
+   own post announcing Circle Wrapped Bitcoin ("Circle Wrapped Bitcoin is
+   coming.", 2026-04-02, public), whose "Bitcoin" the Arc name tier resolves
+   to cirBTC: Circle's asset, under Circle's post. Verified 2026-09-29 through
+   the syndication endpoint and the matcher (arc/edition-helpers.spec.ts). */
+
+/**
+ * WHERE "Try Poppin" OFFERS TO GO, in the Arc edition: one post on each kind
+ * of page the chip runs on, each checked 2026-09-29 by fetching the page and
+ * running its text through the matcher (arc/edition-helpers.spec.ts), and
+ * each on a host a site adapter serves (config/try-places.spec.ts).
+ *
+ * Calm, reputable and about Circle's own assets on purpose: measured the same
+ * day, a Circle and an Arc grant-reviewer panel both said a memecoin or
+ * launchpad-token post as a first stop would hurt, and on testnet no long-tail
+ * Arc token resolves at all. `what` is the source and the headline as the
+ * page itself prints it.
+ */
+export interface TryPlace {
+  id: "x" | "news" | "reddit"
+  where: string
+  what: string
+  url: string
+}
+export const ARC_TRY_PLACES: readonly TryPlace[] = [
+  { id: "x", where: "On X", what: "Circle: Circle Wrapped Bitcoin is coming", url: ONBOARDING_X_URL },
+  {
+    id: "news",
+    where: "In the news",
+    what: "CNBC: Bitcoin hits highest level since January",
+    url: "https://www.cnbc.com/2026/09/21/bitcoin-price-crypto-rally.html",
+  },
+  {
+    id: "reddit",
+    where: "On Reddit",
+    what: "r/personalfinance: IRS issues Bitcoin guidance",
+    url: "https://www.reddit.com/r/personalfinance/comments/21d0rr/irs_issues_bitcoin_guidance_virtual_currency_is/",
+  },
+]
 
 /**
  * WRITTEN BY THE COACH ITSELF, THE MOMENT IT IS SHOWN, and read by nothing
