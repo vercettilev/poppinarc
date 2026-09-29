@@ -42,6 +42,7 @@ describe("the reader client", () => {
   it("sends nothing for a post with no sign of money", async () => {
     expect(await readText("c", "lovely weather in Lisbon")).toBeNull()
     expect(looksLikeMoney("ECB cuts rates by 25bp")).toBe(true)
+    expect(looksLikeMoney("Analyst predicts 35% upside for Strategy")).toBe(true)
     expect(sendApiRequest).not.toHaveBeenCalled()
   })
 

@@ -100,7 +100,8 @@ export function rulesMatch(text: string, keys: readonly string[] = READER_KEYS):
  */
 const MONEY = [
   /[$€£¥]\s?\d/,
-  /\b\d+(\.\d+)?\s?(%|bps|bp)\b/i,
+  // A percent sign ends a word, so the boundary goes before it, never after.
+  /\b\d+(\.\d+)?\s?(%|bps\b|bp\b)/i,
   /\b(price|prices|market|markets|stock|stocks|shares|crypto|coin|coins|token|tokens|etf|etfs|fund|funds|rate|rates|yield|yields|bond|bonds|inflation|cpi|fed|ecb|central bank|currency|currencies|dollar|dollars|euro|euros|forex|fx|rally|rallies|dip|dips|crash|pump|dump|bull|bullish|bear|bearish|buy|buying|bought|sell|selling|sold|trade|trading|invest|investing|investor|investors|treasury|treasuries|halving|miners|mining|ath|all-time high)\b/i,
 ];
 
