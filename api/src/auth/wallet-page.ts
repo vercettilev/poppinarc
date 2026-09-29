@@ -1,3 +1,4 @@
+import { WALLET_ICON_FALLBACKS } from './wallet-page-icons';
 import { POPPIN_LOGO_DATA_URI } from './wallet-page-logo';
 
 /**
@@ -38,7 +39,7 @@ export function walletSignInPage(): string {
   .w:hover { background: rgba(255,255,255,.07); }
   .w:disabled { opacity: .6; cursor: default; }
   .w img, .w .blank { width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0; }
-  .w .blank { background: rgba(104,198,255,.14); }
+  .w .blank { background: rgba(104,198,255,.14); display: grid; place-items: center; font-weight: 700; color: #CDEAFF; }
   .w b { flex: 1; font-size: 15px; font-weight: 600; }
   .w span.chev { color: #74849A; font-size: 20px; }
   .status { min-height: 22px; margin-top: 18px; font-size: 14px; color: rgba(255,255,255,.7); }
@@ -73,18 +74,51 @@ export function walletSignInPage(): string {
   var status = document.getElementById("status");
 
   function say(text, err) { status.textContent = text || ""; status.className = err ? "status err" : "status"; }
-  function safeIcon(src) { return typeof src === "string" && src.indexOf("data:image/") === 0 ? src : ""; }
+  var FALLBACKS = ${JSON.stringify(WALLET_ICON_FALLBACKS)};
+  // A wallet's own icon: a data: image or an https address (wallets announce
+  // both, whatever EIP-6963 prefers). An unencoded SVG is re-encoded so a "#"
+  // inside it cannot cut the image short.
+  function iconSrc(src) {
+    if (typeof src !== "string") return "";
+    var s = src.trim();
+    if (/^https:\\/\\//i.test(s)) return s;
+    if (!/^data:image\\//i.test(s)) return "";
+    var m = /^data:image\\/svg\\+xml(;charset=[^,;]+)?,([\\s\\S]*)$/i.exec(s);
+    if (m) {
+      var body = m[2];
+      try { body = decodeURIComponent(body); } catch (e) {}
+      return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(body);
+    }
+    return s;
+  }
+  function letterDisc(name) {
+    var span = document.createElement("span");
+    span.className = "blank";
+    span.textContent = (name || "W").trim().charAt(0).toUpperCase();
+    return span;
+  }
 
   function render(final) {
     list.innerHTML = "";
     found.forEach(function (d) {
       var b = document.createElement("button");
       b.className = "w"; b.type = "button"; b.disabled = busy;
-      var icon = safeIcon(d.info && d.info.icon);
+      var label = (d.info && d.info.name) || "Browser wallet";
+      var fallback = FALLBACKS[(d.info && d.info.rdns) || ""] || "";
+      var icon = iconSrc(d.info && d.info.icon) || fallback;
       var img;
-      if (icon) { img = document.createElement("img"); img.src = icon; img.alt = ""; }
-      else { img = document.createElement("span"); img.className = "blank"; }
-      var name = document.createElement("b"); name.textContent = (d.info && d.info.name) || "Browser wallet";
+      if (icon) {
+        img = document.createElement("img"); img.alt = "";
+        img.addEventListener("error", function () {
+          // The announced icon did not load: the bundled mark, else the initial.
+          if (fallback && img.src !== fallback) { img.src = fallback; return; }
+          if (img.parentNode) img.parentNode.replaceChild(letterDisc(label), img);
+        });
+        img.src = icon;
+      } else {
+        img = letterDisc(label);
+      }
+      var name = document.createElement("b"); name.textContent = label;
       var chev = document.createElement("span"); chev.className = "chev"; chev.textContent = "\\u203A";
       b.appendChild(img); b.appendChild(name); b.appendChild(chev);
       b.addEventListener("click", function () { connect(d); });

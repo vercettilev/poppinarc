@@ -40,9 +40,12 @@ import {
 export function ArcDepositCard({
   fallbackAddress,
   onCopy,
+  amountUsd,
 }: {
   fallbackAddress: string
   onCopy?: (network: string) => void
+  /** The amount picked above the card (arc/AmountPicker), named in its instruction. */
+  amountUsd?: number
 }) {
   const { showToast } = useToast()
   const { data, isLoading } = useDepositAddresses(true)
@@ -117,7 +120,7 @@ export function ArcDepositCard({
         ))}
       </Box>
       <Typography sx={{ fontSize: 11.5, color: FAINT, mt: 1, textAlign: "center", lineHeight: 1.45 }}>
-        Send USDC on Arc. It's ready the moment it lands.
+        {amountUsd ? `Send ${amountUsd} USDC on Arc. It's ready the moment it lands.` : "Send USDC on Arc. It's ready the moment it lands."}
       </Typography>
 
       {view.others.length > 0 && (

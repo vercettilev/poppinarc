@@ -7,6 +7,7 @@ import { CNBC_ICON_URI, REDDIT_ICON_URI } from "~/assets/tryPlaceIcons"
 import { ARC_TRY_PLACES, type TryPlace } from "~/config/onboarding"
 import { depositCardView, pillAddress, useDepositAddresses } from "~/arc/depositAddresses"
 import { QrCode } from "~/components/QrCode"
+import { AmountPicker } from "~/arc/AmountPicker"
 import { useMyWallet, useWalletTokens } from "~/hooks/useWallet"
 import { QuietAction, StepFrame } from "./StepFrame"
 import { GhostMark } from "./GhostMark"
@@ -108,6 +109,10 @@ export function ArcAddMoney({ onDone }: { onDone: (to?: string) => void | Promis
   const [skipping, setSkipping] = useState(false)
   const [copied, setCopied] = useState<string | null>(null)
   const [othersOpen, setOthersOpen] = useState(false)
+  /** How much the reader means to send; guidance for the sentence, not a limit on what counts. */
+  const [amount, setAmount] = useState(25)
+  /** The address can take a moment the first time (Circle makes the wallet); say so rather than spin in silence. */
+  const [slowAddress, setSlowAddress] = useState(false)
   const [tabId, setTabId] = useState<number | null>(null)
 
   /* The side panel opens only from a gesture, and an await between the tap
@@ -180,6 +185,11 @@ export function ArcAddMoney({ onDone }: { onDone: (to?: string) => void | Promis
   )
   const view = depositCardView(deposit ?? null, fallback)
   const addressMissing = !view.arcAddress
+  useEffect(() => {
+    if (!addressMissing) return
+    const t = window.setTimeout(() => setSlowAddress(true), 8_000)
+    return () => window.clearTimeout(t)
+  }, [addressMissing])
 
   /* One beat for everything this screen waits on: the balance, and the
      address itself while neither route has produced it yet. */
@@ -307,11 +317,12 @@ export function ArcAddMoney({ onDone }: { onDone: (to?: string) => void | Promis
     >
       {view.arcAddress ? (
         <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+          <AmountPicker value={amount} onChange={setAmount} font={FONT} />
           <Box sx={CARD_SX}>
             <QrCode value={view.arcAddress} size={132} mark={logo} />
             <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
               <Typography sx={{ fontFamily: FONT, fontSize: 14, fontWeight: 500, color: "#EAF2FB", lineHeight: 1.4 }}>
-                Send USDC on Arc to this address.
+                {`Send ${amount} USDC on Arc to this address.`}
               </Typography>
               <Typography sx={{ fontFamily: MONO, fontSize: 14, color: "#EAF2FB", letterSpacing: ".01em" }}>
                 {groupedAddress(view.arcAddress)}
@@ -428,8 +439,13 @@ export function ArcAddMoney({ onDone }: { onDone: (to?: string) => void | Promis
           )}
         </Box>
       ) : (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1.5, py: 4 }}>
           <CircularProgress size={22} sx={{ color: ACCENT }} />
+          {slowAddress && (
+            <Typography sx={{ fontFamily: FONT, fontSize: 13.5, color: "rgba(255,255,255,.6)" }}>
+              Setting up your address. One moment.
+            </Typography>
+          )}
         </Box>
       )}
     </StepFrame>

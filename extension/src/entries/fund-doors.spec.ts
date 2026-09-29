@@ -66,7 +66,10 @@ describe("the address screen knows what it is for", () => {
   it("the screen says the amount for a Poppin wallet and counts open and copy", () => {
     const rcv = stripComments(read("views/receive.tsx"))
     expect(rcv).toMatch(/Send at least \$\$\{need\} USDC to cover your buy\./)
-    expect(rcv).toMatch(/\{!external && need !== null && \(/)
+    // The store build's line, and the Arc edition's picker in its place.
+    expect(rcv).toMatch(/!external &&\s*need !== null && \(/)
+    expect(rcv).toMatch(/ARC_EDITION && !external \? \(/)
+    expect(rcv).toMatch(/<AmountPicker/)
     expect(rcv).toMatch(/count\("receive_opened"/)
     expect(rcv).toMatch(/count\("receive_copy_address"/)
   })

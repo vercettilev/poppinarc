@@ -1,5 +1,6 @@
 import { USDC_MINT } from "~/helpers/depositWatch"
 import { ArcDepositCard } from "~/arc/ArcDepositCard"
+import { AMOUNT_PICKS, AmountPicker } from "~/arc/AmountPicker"
 import { ARC_EDITION, CAP } from "~/config/edition"
 import { JUICE } from "~/theme/juice"
 import ArrowBackIcon from "@mui/icons-material/ArrowBack"
@@ -143,6 +144,8 @@ const Receive: React.FC<ReceiveProps> = ({
    */
   const queryClient = useQueryClient()
   const [landedUsd, setLandedUsd] = useState<number | null>(null)
+  /** The amount picked on the Arc edition's picker; null until the reader picks one. */
+  const [arcAmount, setArcAmount] = useState<number | null>(null)
   const startUsdc = useRef<number | null>(null)
   const watching = !external && (need !== null || intent !== null) && landedUsd === null
   /** Ten minutes of ten-second looks, then every thirty seconds, and the line says which. */
@@ -160,6 +163,8 @@ const Receive: React.FC<ReceiveProps> = ({
   }, [watching])
   /** A number that came with a buy says so; the fund box's own picks have no buy behind them. */
   const forBuy = typeof stateNeed === "number" || !!intent?.mint
+  /** What the Arc picker shows: the reader's pick, else the smallest pick that covers the buy, else the buy's own figure. */
+  const arcShown = arcAmount ?? AMOUNT_PICKS.find((p) => p >= (need ?? 0)) ?? need ?? AMOUNT_PICKS[0]
   /**
    * PHANTOM ON THE PAGE BESIDE THE PANEL: the chip's one-tap rail, offered
    * here too. Asked once, of the page, through the same relay a trade uses.
@@ -453,10 +458,28 @@ const Receive: React.FC<ReceiveProps> = ({
       </Typography>
       )}
 
-      {!external && need !== null && (
-        <Typography sx={{ fontSize: 13, px: 2, mt: 0.75, color: "#FFFFFF", fontWeight: 600 }}>
-          {forBuy ? `Send at least $${need} USDC to cover your buy.` : `Send at least $${need} USDC.`}
-        </Typography>
+      {/* THE ARC EDITION PICKS THE AMOUNT AND NAMES THE UNIT (arc/AmountPicker).
+          A buy that sent the reader here still says what it needs, literally,
+          and the picker starts at the smallest amount that covers it. */}
+      {ARC_EDITION && !external ? (
+        <Box sx={{ px: 2, mt: 1 }}>
+          {forBuy && need !== null && (
+            <Typography sx={{ fontSize: 13, mb: 1, color: "#FFFFFF", fontWeight: 600 }}>
+              {`Your buy needs ${need} USDC.`}
+            </Typography>
+          )}
+          <AmountPicker
+            value={arcShown}
+            onChange={setArcAmount}
+          />
+        </Box>
+      ) : (
+        !external &&
+        need !== null && (
+          <Typography sx={{ fontSize: 13, px: 2, mt: 0.75, color: "#FFFFFF", fontWeight: 600 }}>
+            {forBuy ? `Send at least $${need} USDC to cover your buy.` : `Send at least $${need} USDC.`}
+          </Typography>
+        )
       )}
       {/* ONE SENTENCE, because there is one rail that can fail this way.
           It used to fork on `external` and say "Phantom could not convert
@@ -484,6 +507,7 @@ const Receive: React.FC<ReceiveProps> = ({
            route itself and falls back to the wallet address held here. */
         <ArcDepositCard
           fallbackAddress={walletAddress}
+          amountUsd={arcShown}
           onCopy={(network) => count("receive_copy_address", { need, external, network })}
         />
       ) : !walletAddress ? (

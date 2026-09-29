@@ -5,7 +5,7 @@ import {
 } from '@circle-fin/developer-controlled-wallets';
 import { APP_CONFIG, AppConfig } from '../config';
 import { DbService } from '../db/db.service';
-import { stableUuid } from './ids';
+import { circleErrorText, circleRef, stableUuid } from './ids';
 
 /**
  * CIRCLE WALLETS: every Poppin on Arc account is a Circle developer-controlled
@@ -130,14 +130,19 @@ export class CircleWallets {
     if (existing) return existing;
 
     const walletSetId = await this.walletSetId();
-    const res = await this.client.createWallets({
-      walletSetId,
-      blockchains: [chain],
-      accountType: this.accountType,
-      count: 1,
-      metadata: [{ name: `poppin:${uid}`, refId: uid }],
-      idempotencyKey: stableUuid('arc-wallet', this.config.network.name, uid),
-    });
+    const ref = circleRef(uid);
+    const res = await this.client
+      .createWallets({
+        walletSetId,
+        blockchains: [chain],
+        accountType: this.accountType,
+        count: 1,
+        metadata: [{ name: `poppin:${ref}`, refId: ref }],
+        idempotencyKey: stableUuid('arc-wallet', this.config.network.name, ref),
+      })
+      .catch((e: unknown) => {
+        throw new Error(circleErrorText(e));
+      });
     const w = res.data?.wallets?.[0];
     if (!w) throw new Error('Circle returned no wallet');
     return this.store(uid, chain, w.id, w.address, this.accountType);
@@ -151,11 +156,16 @@ export class CircleWallets {
     const existing = await this.find(uid, blockchain);
     if (existing) return existing;
     const arc = await this.ensureArcWallet(uid);
-    const res = await this.client.deriveWallet({
-      id: arc.walletId,
-      blockchain: blockchain as never,
-      metadata: { name: `poppin:${uid}:${blockchain}`, refId: `${uid}:${blockchain}` },
-    });
+    const ref = circleRef(uid);
+    const res = await this.client
+      .deriveWallet({
+        id: arc.walletId,
+        blockchain: blockchain as never,
+        metadata: { name: `poppin:${ref}:${blockchain}`, refId: `${ref}-${blockchain}` },
+      })
+      .catch((e: unknown) => {
+        throw new Error(circleErrorText(e));
+      });
     const w = res.data?.wallet;
     if (!w) throw new Error(`Circle returned no ${blockchain} wallet`);
     if (w.address.toLowerCase() !== arc.address.toLowerCase()) {
@@ -171,14 +181,19 @@ export class CircleWallets {
     const chain = this.config.network.name === 'mainnet' ? 'SOL' : 'SOL-DEVNET';
     const existing = await this.find(uid, chain);
     if (existing) return existing;
-    const res = await this.client.createWallets({
-      walletSetId: await this.walletSetId(),
-      blockchains: [chain],
-      accountType: 'EOA',
-      count: 1,
-      metadata: [{ name: `poppin:${uid}:sol`, refId: `${uid}:sol` }],
-      idempotencyKey: stableUuid('sol-wallet', this.config.network.name, uid),
-    });
+    const ref = circleRef(uid);
+    const res = await this.client
+      .createWallets({
+        walletSetId: await this.walletSetId(),
+        blockchains: [chain],
+        accountType: 'EOA',
+        count: 1,
+        metadata: [{ name: `poppin:${ref}:sol`, refId: `${ref}-sol` }],
+        idempotencyKey: stableUuid('sol-wallet', this.config.network.name, ref),
+      })
+      .catch((e: unknown) => {
+        throw new Error(circleErrorText(e));
+      });
     const w = res.data?.wallets?.[0];
     if (!w) throw new Error('Circle returned no Solana wallet');
     return this.store(uid, chain, w.id, w.address, 'EOA');

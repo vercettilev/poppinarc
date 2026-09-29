@@ -135,6 +135,11 @@ describe('/auth/wallet over HTTP', () => {
     expect(r.headers.get('content-security-policy')).toContain("frame-ancestors 'none'");
     const html = await r.text();
     expect(html).toContain('Continue with a wallet');
+    // The script is written inside a TS template literal, where a single
+    // backslash is silently eaten: it must still parse, or the page lists nothing.
+    const script = html.slice(html.indexOf('<script>') + 8, html.indexOf('</script>'));
+    expect(() => new Function(script)).not.toThrow();
+    expect(script).toContain('/^https:\\/\\//i');
     expect(html).toContain('eip6963:requestProvider');
     expect(html).toContain('POPPIN_ARC_WALLET_SIGNIN');
   });
