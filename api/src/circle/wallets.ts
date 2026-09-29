@@ -149,13 +149,20 @@ export class CircleWallets {
   }
 
   /**
-   * A wallet on another EVM network with the SAME address as the user's Arc
-   * wallet, so "send USDC to this address" is true on every network we list.
+   * The user's deposit wallet on another EVM network: always a smart account,
+   * because only a smart account has its gas paid (Gas Station) and the sweep
+   * has to burn from it without anyone sending it ETH.
+   *
+   * When the Arc wallet is a smart account too, the deposit wallet is derived
+   * from it and has the SAME address. When the Arc wallet is an EOA (every
+   * account made so far), it is a smart account of its own on that network,
+   * with its own address; the Add money card names each network's address.
    */
   async ensureEvmDepositWallet(uid: string, blockchain: string): Promise<StoredWallet> {
     const existing = await this.find(uid, blockchain);
     if (existing) return existing;
     const arc = await this.ensureArcWallet(uid);
+    if (arc.accountType !== 'SCA') return this.createSmartDepositWallet(uid, blockchain);
     const ref = circleRef(uid);
     const res = await this.client
       .deriveWallet({
@@ -174,6 +181,58 @@ export class CircleWallets {
       throw new Error(`derived ${blockchain} wallet has a different address`);
     }
     return this.store(uid, blockchain, w.id, w.address, arc.accountType);
+  }
+
+  /** A smart account of the user's own on one EVM network, for an account whose Arc wallet is an EOA. */
+  private async createSmartDepositWallet(uid: string, blockchain: string): Promise<StoredWallet> {
+    const ref = circleRef(uid);
+    const res = await this.client
+      .createWallets({
+        walletSetId: await this.walletSetId(),
+        blockchains: [blockchain as never],
+        accountType: 'SCA',
+        count: 1,
+        metadata: [{ name: `poppin:${ref}:${blockchain}`, refId: `${ref}-${blockchain}` }],
+        idempotencyKey: stableUuid('sca-deposit', this.config.network.name, ref, blockchain),
+      })
+      .catch((e: unknown) => {
+        throw new Error(circleErrorText(e));
+      });
+    const w = res.data?.wallets?.[0];
+    if (!w) throw new Error(`Circle returned no ${blockchain} wallet`);
+    return this.store(uid, blockchain, w.id, w.address, 'SCA');
+  }
+
+  /**
+   * The wallet that sends SOL to Solana deposit wallets, made once per network
+   * and remembered in settings (DEPOSIT_SOL_FUNDER=auto). It is ours, not a
+   * user's; someone has to send it SOL (devnet SOL on testnet).
+   */
+  async ensureSolanaFunder(): Promise<string> {
+    const net = this.config.network.name;
+    const key = `deposit_sol_funder:${net}`;
+    const rows = await this.db.query<{ value: string }>('SELECT value FROM settings WHERE key = $1', [key]);
+    if (rows[0]) return rows[0].value;
+    const res = await this.client
+      .createWallets({
+        walletSetId: await this.walletSetId(),
+        blockchains: [net === 'mainnet' ? 'SOL' : 'SOL-DEVNET'],
+        accountType: 'EOA',
+        count: 1,
+        metadata: [{ name: 'poppin:sol-funder', refId: 'sol-funder' }],
+        idempotencyKey: stableUuid('sol-funder', net),
+      })
+      .catch((e: unknown) => {
+        throw new Error(circleErrorText(e));
+      });
+    const address = res.data?.wallets?.[0]?.address;
+    if (!address) throw new Error('Circle returned no Solana funder wallet');
+    await this.db.query(
+      `INSERT INTO settings (key, value) VALUES ($1, $2)
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+      [key, address],
+    );
+    return address;
   }
 
   /** A Solana wallet for money arriving from Solana. It has its own address. */

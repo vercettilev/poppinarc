@@ -366,6 +366,8 @@ describe('loadDepositConfig', () => {
 
   it('reads names or codes in order, "none", and treats a placeholder as unset', () => {
     expect(loadDepositConfig({ DEPOSIT_NETWORKS: 'solana, base,ETH,base' }).networks).toEqual(['SOL', 'BASE', 'ETH']);
+    expect(loadDepositConfig({ DEPOSIT_NETWORKS: 'SOL,polygon,MATIC,arb' }).networks).toEqual(['SOL', 'POLYGON', 'ARB']);
+    expect(loadDepositConfig({ DEPOSIT_SOL_FUNDER: 'auto' }).solFunder).toBe('auto');
     expect(loadDepositConfig({ DEPOSIT_NETWORKS: 'none' }).networks).toEqual([]);
     expect(loadDepositConfig({ DEPOSIT_NETWORKS: '<networks>' }).networks).toEqual([]);
     expect(
@@ -379,7 +381,7 @@ describe('loadDepositConfig', () => {
   });
 
   it('refuses what it cannot read at boot', () => {
-    expect(() => loadDepositConfig({ DEPOSIT_NETWORKS: 'SOL,polygon' })).toThrow(/polygon/);
+    expect(() => loadDepositConfig({ DEPOSIT_NETWORKS: 'SOL,dogechain' })).toThrow(/dogechain/);
     expect(() => loadDepositConfig({ DEPOSIT_MIN_USDC: 'lots' })).toThrow(/DEPOSIT_MIN_USDC/);
     expect(() => loadDepositConfig({ DEPOSIT_MIN_USDC: '0' })).toThrow(/above zero/);
     expect(() => loadDepositConfig({ DEPOSIT_SWEEP_SECONDS: '-1' })).toThrow(/DEPOSIT_SWEEP_SECONDS/);
@@ -401,16 +403,18 @@ describe('loadDepositConfig', () => {
 describe('assertDepositGas', () => {
   const cfg = (networks: DepositConfig['networks'], solFunder: string | null = null) => ({ ...CFG, networks, solFunder });
 
-  it('refuses Solana without a funder and EVM networks without smart accounts', () => {
+  it('refuses Solana without a funder, and takes EVM networks whatever the Arc wallet is', () => {
     expect(() => assertDepositGas(cfg(['SOL']), 'SCA')).toThrow(/DEPOSIT_SOL_FUNDER/);
-    expect(() => assertDepositGas(cfg(['BASE', 'ETH']), 'EOA')).toThrow(/BASE, ETH.*CIRCLE_ACCOUNT_TYPE is EOA/);
+    // EVM deposit wallets are smart accounts even for EOA users (Gas Station pays).
+    expect(() => assertDepositGas(cfg(['BASE', 'ETH', 'POLYGON']), 'EOA')).not.toThrow();
     expect(() => assertDepositGas(cfg(['SOL', 'BASE'], FUNDER), 'SCA')).not.toThrow();
+    expect(() => assertDepositGas(cfg(['SOL'], 'auto'), 'EOA')).not.toThrow();
     expect(() => assertDepositGas(cfg([]), 'EOA')).not.toThrow();
   });
 
   it('is checked when the service is built, so a bad deploy stops at boot', () => {
     expect(() => setup({ cfg: { solFunder: null } })).toThrow(/DEPOSIT_SOL_FUNDER/);
-    expect(() => setup({ cfg: { networks: ['ARB'] }, accountType: 'EOA' })).toThrow(/CIRCLE_ACCOUNT_TYPE/);
+    expect(() => setup({ cfg: { networks: ['ARB'] }, accountType: 'EOA' })).not.toThrow();
   });
 });
 
@@ -442,11 +446,19 @@ describe('depositAddresses', () => {
     expect(wallets.ensureEvmDepositWallet).toHaveBeenCalledWith('u1', 'ETH-SEPOLIA');
   });
 
-  it('leaves EVM networks out for a user whose Arc wallet is an EOA: that deposit wallet would wait for ETH', async () => {
-    const { service, wallets } = setup({ cfg: { networks: ['BASE', 'SOL'] } });
+  it('gives a user whose Arc wallet is an EOA an address on every EVM network too', async () => {
+    const { service, wallets } = setup({ cfg: { networks: ['BASE', 'SOL', 'POLYGON'] } });
+    wallets.ensureEvmDepositWallet.mockImplementation(async (uid: string, blockchain: string) => ({
+      uid,
+      blockchain,
+      walletId: `w-${blockchain}`,
+      address: '0x' + blockchain.length.toString(16).padStart(40, '0'),
+      accountType: 'SCA',
+    }));
     const out = await service.depositAddresses('u1');
-    expect(out.others).toEqual([{ network: 'Solana', address: SOL_ADDR, minUsdcRaw: '1000000' }]);
-    expect(wallets.ensureEvmDepositWallet).not.toHaveBeenCalled();
+    expect(out.others.map((o) => o.network)).toEqual(['Base', 'Solana', 'Polygon']);
+    expect(wallets.ensureEvmDepositWallet).toHaveBeenCalledWith('u1', 'BASE-SEPOLIA');
+    expect(wallets.ensureEvmDepositWallet).toHaveBeenCalledWith('u1', 'MATIC-AMOY');
   });
 
   it('is Arc alone when no other network is enabled', async () => {

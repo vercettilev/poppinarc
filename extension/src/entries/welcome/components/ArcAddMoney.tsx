@@ -1,7 +1,6 @@
 import { Box, Button, CircularProgress, Typography } from "@mui/material"
 import { useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
-import logo from "~/assets/logo.png"
 import { USDC_MINT } from "~/arc/chain"
 import { CNBC_ICON_URI, REDDIT_ICON_URI } from "~/assets/tryPlaceIcons"
 import { ARC_TRY_PLACES, type TryPlace } from "~/config/onboarding"
@@ -108,7 +107,12 @@ export function ArcAddMoney({ onDone }: { onDone: (to?: string) => void | Promis
   const [landed, setLanded] = useState<number | null>(null)
   const [skipping, setSkipping] = useState(false)
   const [copied, setCopied] = useState<string | null>(null)
-  const [othersOpen, setOthersOpen] = useState(false)
+  /**
+   * The network the reader sends on. Arc is the balance itself; every other
+   * network is a wallet of theirs that arc-api sweeps to Arc with CCTP, so
+   * money sent on any of them ends in the one balance with no bridge to run.
+   */
+  const [network, setNetwork] = useState("Arc")
   /** How much the reader means to send; guidance for the sentence, not a limit on what counts. */
   const [amount, setAmount] = useState(25)
   /** The address can take a moment the first time (Circle makes the wallet); say so rather than spin in silence. */
@@ -184,6 +188,10 @@ export function ArcAddMoney({ onDone }: { onDone: (to?: string) => void | Promis
       "",
   )
   const view = depositCardView(deposit ?? null, fallback)
+  const places: Array<{ network: string; address: string; minUsdc?: string }> = view.arcAddress
+    ? [{ network: "Arc", address: view.arcAddress }, ...view.others]
+    : []
+  const place = places.find((p) => p.network === network) ?? places[0] ?? null
   const addressMissing = !view.arcAddress
   useEffect(() => {
     if (!addressMissing) return
@@ -315,20 +323,64 @@ export function ArcAddMoney({ onDone }: { onDone: (to?: string) => void | Promis
         />
       }
     >
-      {view.arcAddress ? (
+      {place ? (
         <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
           <AmountPicker value={amount} onChange={setAmount} font={FONT} />
+          {places.length > 1 && (
+            <Box role="radiogroup" aria-label="Network" sx={{ width: "100%", display: "flex", flexWrap: "wrap", gap: 0.75 }}>
+              {places.map((p) => {
+                const on = p.network === place.network
+                return (
+                  <Box
+                    key={p.network}
+                    component="button"
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => {
+                      if (!on) track(`network_${p.network.toLowerCase()}`)
+                      setNetwork(p.network)
+                    }}
+                    sx={{
+                      height: 34,
+                      px: 1.75,
+                      border: 0,
+                      borderRadius: "999px",
+                      cursor: "pointer",
+                      fontFamily: FONT,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: on ? "#06202E" : "rgba(255,255,255,.8)",
+                      backgroundColor: on ? "#EAF2FB" : "rgba(255,255,255,.05)",
+                      boxShadow: on ? "none" : "inset 0 0 0 1px rgba(255,255,255,.10)",
+                      "&:hover": { backgroundColor: on ? "#EAF2FB" : "rgba(255,255,255,.09)" },
+                    }}
+                  >
+                    {p.network}
+                  </Box>
+                )
+              })}
+            </Box>
+          )}
           <Box sx={CARD_SX}>
-            <QrCode value={view.arcAddress} size={132} mark={logo} />
+            {/* A plain code: the mark in the middle did not look good (Lev, 2026-09-29). */}
+            <QrCode value={place.address} size={132} />
             <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
               <Typography sx={{ fontFamily: FONT, fontSize: 14, fontWeight: 500, color: "#EAF2FB", lineHeight: 1.4 }}>
-                {`Send ${amount} USDC on Arc to this address.`}
+                {`Send ${amount} USDC on ${place.network} to this address.`}
               </Typography>
-              <Typography sx={{ fontFamily: MONO, fontSize: 14, color: "#EAF2FB", letterSpacing: ".01em" }}>
-                {groupedAddress(view.arcAddress)}
+              <Typography sx={{ fontFamily: MONO, fontSize: 14, color: "#EAF2FB", letterSpacing: ".01em", wordBreak: "break-all" }}>
+                {groupedAddress(place.address)}
               </Typography>
+              {place.network !== "Arc" && (
+                <Typography sx={{ fontFamily: FONT, fontSize: 12.5, color: "#8CA3BD", lineHeight: 1.45 }}>
+                  {place.minUsdc
+                    ? `From ${place.minUsdc} USDC. It moves to your balance on its own.`
+                    : "It moves to your balance on its own."}
+                </Typography>
+              )}
               <Button
-                onClick={() => copy("Arc", view.arcAddress)}
+                onClick={() => copy(place.network, place.address)}
                 sx={{
                   mt: 0.5,
                   height: 36,
@@ -339,11 +391,11 @@ export function ArcAddMoney({ onDone }: { onDone: (to?: string) => void | Promis
                   fontWeight: 600,
                   textTransform: "none",
                   color: "#06202E",
-                  backgroundColor: copied === "Arc" ? "#4ADE80" : ACCENT,
-                  "&:hover": { backgroundColor: copied === "Arc" ? "#4ADE80" : "#8AD4FF" },
+                  backgroundColor: copied === place.network ? "#4ADE80" : ACCENT,
+                  "&:hover": { backgroundColor: copied === place.network ? "#4ADE80" : "#8AD4FF" },
                 }}
               >
-                {copied === "Arc" ? "Copied" : "Copy address"}
+                {copied === place.network ? "Copied" : "Copy address"}
               </Button>
             </Box>
           </Box>
@@ -365,78 +417,6 @@ export function ArcAddMoney({ onDone }: { onDone: (to?: string) => void | Promis
               We'll let you know when it arrives.
             </Typography>
           </Box>
-
-          {view.others.length > 0 && (
-            <Box sx={{ width: "100%" }}>
-              <Box
-                component="button"
-                type="button"
-                onClick={() => {
-                  if (!othersOpen) track("others_opened")
-                  setOthersOpen((o) => !o)
-                }}
-                aria-expanded={othersOpen}
-                sx={ROW_SX}
-              >
-                <Box sx={ICON_SX}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M7 7h11l-3-3" />
-                    <path d="M17 17H6l3 3" />
-                  </svg>
-                </Box>
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography sx={{ fontFamily: FONT, fontSize: 14.5, fontWeight: 600, color: "#EAF2FB" }}>
-                    Money somewhere else?
-                  </Typography>
-                  <Typography sx={{ fontFamily: FONT, fontSize: 12.5, color: "#8CA3BD", mt: 0.25 }}>
-                    Send it on another network. We'll bring it to you.
-                  </Typography>
-                </Box>
-                <Box
-                  component="span"
-                  sx={{ color: "#74849A", fontSize: 20, transform: othersOpen ? "rotate(90deg)" : "none", transition: "transform .16s ease-out" }}
-                >
-                  {"›"}
-                </Box>
-              </Box>
-              {othersOpen && (
-                <Box sx={{ display: "grid", gap: 0.75, mt: 0.75 }}>
-                  {view.others.map((o) => {
-                    const key = `${o.network}|${o.address}`
-                    const done = copied === key
-                    return (
-                      <Box
-                        key={key}
-                        component="button"
-                        type="button"
-                        onClick={() => copy(key, o.address)}
-                        aria-label={`Copy your ${o.network} address`}
-                        sx={{ ...ROW_SX, py: 1.25, color: done ? "#4ADE80" : "#EAF2FB" }}
-                      >
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography sx={{ fontFamily: FONT, fontSize: 13.5, fontWeight: 600 }}>
-                            {`USDC on ${o.network}`}
-                            {o.minUsdc && (
-                              <Box component="span" sx={{ fontWeight: 400, color: "#8CA3BD" }}>{` · from ${o.minUsdc} USDC`}</Box>
-                            )}
-                          </Typography>
-                          <Typography sx={{ fontFamily: MONO, fontSize: 12, color: done ? "#4ADE80" : "#8CA3BD", mt: 0.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {pillAddress(o.address)}
-                          </Typography>
-                        </Box>
-                        <Typography sx={{ fontFamily: FONT, fontSize: 12.5, fontWeight: 600, flexShrink: 0 }}>
-                          {done ? "Copied" : "Copy"}
-                        </Typography>
-                      </Box>
-                    )
-                  })}
-                  <Typography sx={{ fontFamily: FONT, fontSize: 12, color: "rgba(255,255,255,.4)", textAlign: "center", lineHeight: 1.45, mt: 0.25 }}>
-                    {view.othersNote}
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-          )}
         </Box>
       ) : (
         <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1.5, py: 4 }}>
@@ -516,18 +496,6 @@ const ROW_SX = {
   boxShadow: "inset 0 0 0 1px rgba(255,255,255,.07)",
   "&:hover": { backgroundColor: "rgba(255,255,255,.06)" },
   "&:disabled": { opacity: 0.6, cursor: "default" },
-} as const
-
-const ICON_SX = {
-  width: 36,
-  height: 36,
-  borderRadius: "50%",
-  display: "grid",
-  placeItems: "center",
-  flexShrink: 0,
-  color: "#9FD9FF",
-  backgroundColor: "rgba(104,198,255,.10)",
-  "& svg": { width: 18, height: 18 },
 } as const
 
 const PRIMARY_SX = {

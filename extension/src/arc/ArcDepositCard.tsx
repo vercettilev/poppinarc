@@ -3,7 +3,6 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy"
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore"
 import { alpha, Box, CircularProgress, Typography } from "@mui/material"
 import { useState } from "react"
-import logo from "~/assets/logo.png"
 import { QrCode } from "~/components/QrCode"
 import { useToast } from "~/components/Toast/ToastProvider"
 import { ACCENT, DIM, FAINT, PANEL_CARD, PANEL_PILL, PANEL_ROW } from "~/helpers/panelSurface"
@@ -81,7 +80,8 @@ export function ArcDepositCard({
   return (
     <Box sx={{ mx: 2, mt: 2, ...PANEL_CARD }}>
       <Box sx={{ display: "grid", placeItems: "center" }}>
-        <QrCode value={view.arcAddress} size={168} mark={logo} />
+        {/* A plain code, no mark in the middle (Lev, 2026-09-29). */}
+        <QrCode value={view.arcAddress} size={168} />
       </Box>
       <Box
         component="button"

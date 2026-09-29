@@ -16,6 +16,8 @@ import {
   BaseSepolia,
   Ethereum,
   EthereumSepolia,
+  Polygon,
+  PolygonAmoy,
   Solana,
   SolanaDevnet,
 } from '@circle-fin/app-kit/chains';
@@ -43,7 +45,7 @@ import { lower, type Address, type Leg, type LegKind } from '../trade/types';
 
 /**
  * DEPOSITS FROM OTHER NETWORKS: money that lands in a user's wallet on
- * Solana (or Base, Ethereum, Arbitrum) moves to their Arc wallet by itself.
+ * Solana (or Base, Ethereum, Arbitrum, Polygon) moves to their Arc wallet by itself.
  *
  * Each user gets a Circle wallet on every enabled network. A sweep reads
  * those wallets' USDC, and when a balance is worth moving it burns it with
@@ -66,9 +68,12 @@ import { lower, type Address, type Leg, type LegKind } from '../trade/types';
  * A NETWORK IS ONLY OFFERED WHEN ITS GAS IS PAID FOR. Circle Wallets sponsor
  * nothing on Solana (the wallet is its own fee payer, and every burn also
  * funds a CCTP message account's rent), so Solana needs DEPOSIT_SOL_FUNDER,
- * a wallet of ours that tops deposit wallets up. EVM networks need smart
- * accounts, whose gas Gas Station sponsors. Anything else is refused at boot,
- * so no one is shown an address their money would sit in.
+ * a wallet of ours that tops deposit wallets up (`auto` makes and keeps one).
+ * An EVM deposit wallet is always a smart account, whose gas Gas Station
+ * sponsors (on testnet by Circle's default policy): derived from the Arc
+ * wallet when that is a smart account too, so the address is the same,
+ * otherwise a smart account of its own with its own address. Anything else
+ * is refused at boot, so no one is shown an address their money would sit in.
  *
  * Statuses on the action row:
  *   pending    created; the burn has not been seen to succeed
@@ -77,8 +82,8 @@ import { lower, type Address, type Leg, type LegKind } from '../trade/types';
  *   failed     the money did not leave (or needs a person, see `reconcile:`)
  */
 
-export type DepositNetworkKey = 'SOL' | 'BASE' | 'ETH' | 'ARB';
-export type DepositNetworkLabel = 'Solana' | 'Base' | 'Ethereum' | 'Arbitrum';
+export type DepositNetworkKey = 'SOL' | 'BASE' | 'ETH' | 'ARB' | 'POLYGON';
+export type DepositNetworkLabel = 'Solana' | 'Base' | 'Ethereum' | 'Arbitrum' | 'Polygon';
 
 export interface DepositNetwork {
   key: DepositNetworkKey;
@@ -129,6 +134,9 @@ const ALIASES: Record<string, DepositNetworkKey> = {
   ETHEREUM: 'ETH',
   ARB: 'ARB',
   ARBITRUM: 'ARB',
+  POLYGON: 'POLYGON',
+  POL: 'POLYGON',
+  MATIC: 'POLYGON',
 };
 
 const BASE58_ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -158,7 +166,7 @@ function seconds(value: string | undefined, fallback: number, name: string, min:
 }
 
 /**
- * Read once at boot. DEPOSIT_NETWORKS is a comma list of SOL, BASE, ETH, ARB
+ * Read once at boot. DEPOSIT_NETWORKS is a comma list of SOL, BASE, ETH, ARB, POLYGON
  * (or their full names), default none: Arc is then the only deposit address,
  * and a network is turned on only by someone who has also paid for its gas
  * (see assertDepositGas).
@@ -175,18 +183,19 @@ export function loadDepositConfig(env: NodeJS.ProcessEnv = process.env): Deposit
       const name = part.trim().toUpperCase();
       if (!name) continue;
       const key = ALIASES[name];
-      if (!key) throw new Error(`DEPOSIT_NETWORKS: unknown network "${part.trim()}" (use SOL, BASE, ETH, ARB)`);
+      if (!key) throw new Error(`DEPOSIT_NETWORKS: unknown network "${part.trim()}" (use SOL, BASE, ETH, ARB, POLYGON)`);
       if (!networks.includes(key)) networks.push(key);
     }
   }
   const rpc: Partial<Record<DepositNetworkKey, string>> = {};
-  for (const key of ['SOL', 'BASE', 'ETH', 'ARB'] as const) {
+  for (const key of ['SOL', 'BASE', 'ETH', 'ARB', 'POLYGON'] as const) {
     const url = real(env[`DEPOSIT_RPC_${key}`]);
     if (url) rpc[key] = url;
   }
   const solFunder = real(env.DEPOSIT_SOL_FUNDER);
-  if (solFunder && !BASE58_ADDRESS.test(solFunder)) {
-    throw new Error(`DEPOSIT_SOL_FUNDER must be a Solana address, got "${solFunder}"`);
+  // `auto`: this service makes the funder wallet itself and keeps it (settings).
+  if (solFunder && solFunder !== 'auto' && !BASE58_ADDRESS.test(solFunder)) {
+    throw new Error(`DEPOSIT_SOL_FUNDER must be a Solana address or "auto", got "${solFunder}"`);
   }
   return {
     networks,
@@ -208,20 +217,14 @@ export function loadDepositConfig(env: NodeJS.ProcessEnv = process.env): Deposit
 
 /**
  * Refuses, at boot, a network whose deposit wallets could not pay to move
- * money out. The EVM rule is per deploy here and per user in
- * depositAddresses, because a user's EVM deposit wallet takes its account
- * type from their Arc wallet.
+ * money out. Solana needs a funder. EVM networks need nothing here: their
+ * deposit wallets are smart accounts whatever the Arc wallet is
+ * (CircleWallets.ensureEvmDepositWallet), and Gas Station pays their gas.
  */
-export function assertDepositGas(cfg: DepositConfig, accountType: 'EOA' | 'SCA'): void {
+export function assertDepositGas(cfg: DepositConfig, _accountType: 'EOA' | 'SCA'): void {
   if (cfg.networks.includes('SOL') && !cfg.solFunder) {
     throw new Error(
-      'DEPOSIT_NETWORKS includes SOL but DEPOSIT_SOL_FUNDER is not set: a Solana deposit wallet pays its own fees and CCTP rent, and nothing else would send it SOL',
-    );
-  }
-  const evm = cfg.networks.filter((k) => k !== 'SOL');
-  if (evm.length && accountType !== 'SCA') {
-    throw new Error(
-      `DEPOSIT_NETWORKS includes ${evm.join(', ')} but CIRCLE_ACCOUNT_TYPE is ${accountType}: only smart accounts have their gas sponsored, and an EOA would wait for ETH that nothing sends it`,
+      'DEPOSIT_NETWORKS includes SOL but DEPOSIT_SOL_FUNDER is not set: a Solana deposit wallet pays its own fees and CCTP rent, and nothing else would send it SOL (set an address, or "auto")',
     );
   }
 }
@@ -232,7 +235,9 @@ type EvmChainObject =
   | typeof Ethereum
   | typeof EthereumSepolia
   | typeof Arbitrum
-  | typeof ArbitrumSepolia;
+  | typeof ArbitrumSepolia
+  | typeof Polygon
+  | typeof PolygonAmoy;
 
 /** Every network this deploy could take deposits from, enabled or not. Addresses come from App Kit's chain objects. */
 export function depositNetworks(arc: AppConfig['network']['name'], rpc: DepositConfig['rpc'] = {}): DepositNetwork[] {
@@ -262,6 +267,7 @@ export function depositNetworks(arc: AppConfig['network']['name'], rpc: DepositC
     evm('BASE', 'Base', main ? Base : BaseSepolia, main ? 'BASE' : 'BASE-SEPOLIA'),
     evm('ETH', 'Ethereum', main ? Ethereum : EthereumSepolia, main ? 'ETH' : 'ETH-SEPOLIA'),
     evm('ARB', 'Arbitrum', main ? Arbitrum : ArbitrumSepolia, main ? 'ARB' : 'ARB-SEPOLIA'),
+    evm('POLYGON', 'Polygon', main ? Polygon : PolygonAmoy, main ? 'MATIC' : 'MATIC-AMOY'),
   ];
 }
 
@@ -430,6 +436,8 @@ export class DepositsService implements OnApplicationBootstrap, OnModuleDestroy 
   private sweeping: Promise<SweepReport> | null = null;
   private loop: { stopped: boolean; handle: NodeJS.Timeout | null } | null = null;
   private eventsHooked = false;
+  /** The funder `DEPOSIT_SOL_FUNDER=auto` resolved to at boot; null until then. */
+  private autoFunder: string | null = null;
 
   constructor(
     @Inject(APP_CONFIG) private readonly config: AppConfig,
@@ -454,7 +462,22 @@ export class DepositsService implements OnApplicationBootstrap, OnModuleDestroy 
       this.logger.warn('deposit sweep not started: Circle keys or DATABASE_URL missing');
       return;
     }
+    if (this.cfg.solFunder === 'auto' && this.nets.some((n) => n.kind === 'solana')) {
+      void this.wallets
+        .ensureSolanaFunder()
+        .then((address) => {
+          this.autoFunder = address;
+          // The one address someone has to send SOL to for Solana deposits to move.
+          this.logger.log(`Solana deposit funder: ${address}`);
+        })
+        .catch((e) => this.logger.error(`Solana deposit funder could not be made: ${message(e)}`));
+    }
     this.start();
+  }
+
+  /** The wallet that sends SOL to Solana deposit wallets, or null while there is none. */
+  private funder(): string | null {
+    return this.cfg.solFunder === 'auto' ? this.autoFunder : this.cfg.solFunder;
   }
 
   onModuleDestroy(): void {
@@ -465,17 +488,15 @@ export class DepositsService implements OnApplicationBootstrap, OnModuleDestroy 
 
   /**
    * Where a person can send USDC from. Arc always; each enabled network after
-   * it, in DEPOSIT_NETWORKS order. An EVM network is left out for a user
-   * whose Arc wallet is an EOA (from before the deploy moved to smart
-   * accounts): the deposit wallet derived from it would be an EOA too, and
-   * would wait for ETH. A network whose wallet cannot be made right now is
-   * left out (and logged) rather than taking the Arc address down too.
+   * it, in DEPOSIT_NETWORKS order. Every EVM deposit wallet is a smart account
+   * (see CircleWallets.ensureEvmDepositWallet), so no user is left out for
+   * their Arc wallet's type. A network whose wallet cannot be made right now
+   * is left out (and logged) rather than taking the Arc address down too.
    */
   async depositAddresses(uid: string): Promise<DepositAddressesView> {
     const arc = await this.wallets.ensureArcWallet(uid);
     const others: DepositAddressesView['others'] = [];
     for (const net of this.nets) {
-      if (net.kind === 'evm' && arc.accountType !== 'SCA') continue;
       try {
         const w =
           net.kind === 'solana'
@@ -684,7 +705,7 @@ export class DepositsService implements OnApplicationBootstrap, OnModuleDestroy 
         const legs = latest.legs as DepositLeg[];
         const seen = legs.find((l) => l.gasRaw !== undefined)?.gasRaw;
         const toppedUp = seen !== undefined && bal.gasRaw !== null ? bal.gasRaw > BigInt(seen) : waited;
-        const topUpAgain = waited && this.cfg.solFunder !== null && legs.some(isTopUp);
+        const topUpAgain = waited && this.funder() !== null && legs.some(isTopUp);
         if (!toppedUp && !topUpAgain) {
           report.held.push(latest.id);
           later();
@@ -716,7 +737,7 @@ export class DepositsService implements OnApplicationBootstrap, OnModuleDestroy 
     const short = this.gasShortfall(src, bal);
     if (short) {
       const legs = [gasLeg(src, short, bal.gasRaw)];
-      if (src.net.kind === 'solana' && this.cfg.solFunder) legs.push(await this.topUpSol(row.id, src, bal.gasRaw ?? 0n));
+      if (src.net.kind === 'solana' && this.funder()) legs.push(await this.topUpSol(row.id, src, bal.gasRaw ?? 0n));
       await this.persist(row.id, { status: 'failed', error: short, legs });
       this.logger.warn(`deposit ${row.id} held: ${short}`);
       report.held.push(row.id);
@@ -755,7 +776,7 @@ export class DepositsService implements OnApplicationBootstrap, OnModuleDestroy 
     };
     try {
       const res = await this.wallets.client.createTransaction({
-        walletAddress: this.cfg.solFunder!,
+        walletAddress: this.funder()!,
         blockchain: src.net.walletsBlockchain as TokenBlockchain,
         destinationAddress: src.address,
         amount: [formatUnits(lamports, 9)],
