@@ -113,7 +113,7 @@ export function RoutePreview({ mint }: { mint: string }) {
               {`About ${units(r.outAmount)} ${r.asset.ticker}`}
             </Typography>
             <Typography sx={{ fontSize: 12, color: JUICE.text2, mt: 0.25 }}>
-              {`${r.asset.name} on ${r.asset.chain}, at $${units(r.priceUsd)} each`}
+              {`On ${r.asset.chain}, at $${units(r.priceUsd)} each`}
               {r.priceImpactPct !== null && r.priceImpactPct > 0.1 ? `, ${r.priceImpactPct.toFixed(2)}% price impact` : ""}
             </Typography>
           </Box>
