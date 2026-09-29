@@ -1,4 +1,5 @@
 import type { ArcNetwork } from '../arc/network';
+import { remoteMint } from '../routes/remote';
 
 /**
  * WHAT THE READER MAY NAME, and nothing else.
@@ -48,9 +49,28 @@ export const READER_ASSETS: ReaderAsset[] = [
     names: [/\bEURC\b/],
     address: (net) => net.eurc.address,
   },
+  // On other chains, reached from Arc over CCTP (routes/remote.ts). The rules
+  // for these are their cashtags, which the chip resolves on the server.
+  ...remote('sol', 'SOL', 'Solana', 'Solana the asset (SOL): its price, SOL ETFs, flows into it, or a network event read as a reason to own SOL. Not every project that runs on Solana.'),
+  ...remote('jup', 'JUP', 'Jupiter', 'Jupiter, the Solana exchange aggregator, and its JUP token.'),
+  ...remote('bonk', 'BONK', 'Bonk', 'BONK, the Solana memecoin, when the text is about the coin itself.'),
+  ...remote('hype', 'HYPE', 'Hyperliquid', "Hyperliquid and its HYPE token: the exchange's volumes, fees, buybacks, or HYPE's price."),
+  ...remote('eth', 'ETH', 'Ether', 'Ether (ETH) itself: its price, ETH ETFs, staking, or an Ethereum upgrade read as a reason to own ETH.'),
+  ...remote('aero', 'AERO', 'Aerodrome', "Aerodrome, Base's main exchange, and its AERO token."),
+  ...remote('virtual', 'VIRTUAL', 'Virtuals', 'Virtuals Protocol (AI agents on Base) and its VIRTUAL token.'),
+  ...remote('uni', 'UNI', 'Uniswap', 'Uniswap and its UNI token.'),
+  ...remote('aave', 'AAVE', 'Aave', 'Aave, the lending protocol, and its AAVE token.'),
+  ...remote('link', 'LINK', 'Chainlink', 'Chainlink and its LINK token.'),
 ];
 
+function remote(key: string, ticker: string, name: string, about: string): ReaderAsset[] {
+  return [{ key, ticker, name, about, names: [new RegExp(`\\$${ticker}\\b`, 'i')], address: () => remoteMint(key) }];
+}
+
 export const READER_KEYS = READER_ASSETS.map((a) => a.key);
+
+/** Arc's own assets: what the reader named before it could route anywhere else. */
+export const ARC_READER_KEYS = ['bitcoin', 'euro'];
 
 export function readerAsset(key: string): ReaderAsset | null {
   return READER_ASSETS.find((a) => a.key === key) ?? null;
@@ -61,9 +81,10 @@ export function readerAsset(key: string): ReaderAsset | null {
  * a name that on its own means one asset (the chip's own name tier works the
  * same way). The first asset named wins; nothing named is null.
  */
-export function rulesMatch(text: string): ReaderAsset | null {
+export function rulesMatch(text: string, keys: readonly string[] = READER_KEYS): ReaderAsset | null {
   let best: { at: number; asset: ReaderAsset } | null = null;
   for (const asset of READER_ASSETS) {
+    if (!keys.includes(asset.key)) continue;
     for (const re of asset.names) {
       const m = re.exec(text);
       if (m && (best === null || m.index < best.at)) best = { at: m.index, asset };

@@ -42,8 +42,10 @@ export function costMicroUsd(model: string, u: ReaderUsage): number {
   return Math.ceil(u.input * i + u.output * o + u.cacheWrite * w + u.cacheRead * r);
 }
 
-export function systemPrompt(): string {
-  const assets = READER_ASSETS.map((a) => `- ${a.key}: ${a.about}`).join('\n');
+export function systemPrompt(keys: readonly string[] = READER_KEYS): string {
+  const assets = READER_ASSETS.filter((a) => keys.includes(a.key))
+    .map((a) => `- ${a.key}: ${a.about}`)
+    .join('\n');
   return [
     'You read short texts that a person is reading right now on X, Reddit or a news site: a post, or an article\'s headline and first lines.',
     'For each text, decide whether it is about one of the assets below in a way that makes buying or selling that asset a natural next thought for the reader.',
@@ -59,7 +61,7 @@ export function systemPrompt(): string {
   ].join('\n');
 }
 
-const TOOL = {
+const toolFor = (keys: readonly string[]) => ({
   name: 'report',
   description: 'Report, for every text id, the asset it is about or "none", with a one-line reason.',
   input_schema: {
@@ -71,7 +73,7 @@ const TOOL = {
           type: 'object',
           properties: {
             id: { type: 'string' },
-            asset: { type: 'string', enum: [...READER_KEYS, 'none'] },
+            asset: { type: 'string', enum: [...keys, 'none'] },
             reason: { type: 'string' },
           },
           required: ['id', 'asset', 'reason'],
@@ -80,7 +82,8 @@ const TOOL = {
     },
     required: ['items'],
   },
-} as const;
+});
+const TOOL_NAME = 'report';
 
 /** One line a reader can be shown: no links, no handles, no longer than it should be. */
 export function cleanReason(reason: unknown): string {
@@ -99,8 +102,11 @@ export async function askClaude(opts: {
   items: Array<{ id: string; text: string }>;
   fetchFn?: typeof fetch;
   timeoutMs?: number;
+  /** The catalog keys this question may answer; all of them unless narrowed (the eval narrows to its labels). */
+  keys?: readonly string[];
 }): Promise<{ verdicts: Map<string, ReaderVerdict>; usage: ReaderUsage }> {
   const doFetch = opts.fetchFn ?? fetch;
+  const keys = opts.keys ?? READER_KEYS;
   const res = await doFetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -111,9 +117,9 @@ export async function askClaude(opts: {
     body: JSON.stringify({
       model: opts.model,
       max_tokens: 200 + 80 * opts.items.length,
-      system: systemPrompt(),
-      tools: [TOOL],
-      tool_choice: { type: 'tool', name: TOOL.name },
+      system: systemPrompt(keys),
+      tools: [toolFor(keys)],
+      tool_choice: { type: 'tool', name: TOOL_NAME },
       messages: [{ role: 'user', content: `Texts, as JSON:\n${JSON.stringify(opts.items)}` }],
     }),
     signal: AbortSignal.timeout(opts.timeoutMs ?? 15_000),
@@ -139,14 +145,14 @@ export async function askClaude(opts: {
     cacheWrite: body.usage?.cache_creation_input_tokens ?? 0,
     cacheRead: body.usage?.cache_read_input_tokens ?? 0,
   };
-  const call = body.content?.find((c) => c.type === 'tool_use' && c.name === TOOL.name);
+  const call = body.content?.find((c) => c.type === 'tool_use' && c.name === TOOL_NAME);
   const rows = Array.isArray(call?.input?.items) ? (call!.input!.items as unknown[]) : [];
   const asked = new Set(opts.items.map((i) => i.id));
   const verdicts = new Map<string, ReaderVerdict>();
   for (const r of rows) {
     const row = r as { id?: unknown; asset?: unknown; reason?: unknown };
     if (typeof row.id !== 'string' || !asked.has(row.id) || verdicts.has(row.id)) continue;
-    const key = typeof row.asset === 'string' && READER_KEYS.includes(row.asset) ? row.asset : null;
+    const key = typeof row.asset === 'string' && keys.includes(row.asset) ? row.asset : null;
     verdicts.set(row.id, { key, reason: cleanReason(row.reason) });
   }
   return { verdicts, usage };

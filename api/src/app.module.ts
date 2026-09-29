@@ -24,6 +24,8 @@ import { OwnWalletTrades } from './trade/own-wallet';
 import { OwnWalletController } from './trade/own-wallet.controller';
 import { PageReader } from './reader/reader';
 import { ReaderController } from './reader/reader.controller';
+import { RouteQuotes } from './routes/route-quotes';
+import { RoutesController } from './routes/routes.controller';
 import { SWAP_ROUTERS, TradeService } from './trade/trade.service';
 import { UsersService } from './users/users.service';
 
@@ -40,6 +42,7 @@ import { UsersService } from './users/users.service';
     WalletAuthController,
     OwnWalletController,
     ReaderController,
+    RoutesController,
   ],
   providers: [
     { provide: APP_CONFIG, useFactory: () => loadConfig() },
@@ -72,6 +75,7 @@ import { UsersService } from './users/users.service';
     TradeService,
     OwnWalletTrades,
     PageReader,
+    RouteQuotes,
     DepositsService,
     { provide: DEPOSITS, useExisting: DepositsService },
   ],

@@ -28,6 +28,8 @@ import {
   type SellResponse,
 } from '../trade/trade.service';
 import type { Address } from '../trade/types';
+import { remoteAssetByTicker, remoteAssetOf, remoteMint, type RemoteAsset } from '../routes/remote';
+import { RouteQuotes } from '../routes/route-quotes';
 
 /**
  * /embed/asset/*, answered the way the Poppin extension already expects from
@@ -51,7 +53,7 @@ export interface MatchedAsset {
   name: string;
   displayName: string;
   confidence: 'confident';
-  certainty: 'exact';
+  certainty: 'exact' | 'inferred';
   score: number;
   change24hPct: number | null;
   indicativeUsd: number | null;
@@ -113,6 +115,7 @@ export class AssetController {
   constructor(
     private readonly trade: TradeService,
     @Inject(MARKET) private readonly market: MarketPort,
+    private readonly routes: RouteQuotes,
   ) {}
 
   // ─── discovery ────────────────────────────────────────────────────────────
@@ -136,6 +139,10 @@ export class AssetController {
     const raw = field(body, 'ticker');
     const key = typeof raw === 'string' ? raw.trim().replace(/^\$/, '').toUpperCase() : '';
     if (!/^[A-Z0-9]{2,10}$/.test(key)) return { mint: null };
+    // An asset on another chain, reached from Arc (routes/remote.ts), before any
+    // Arc token that happens to share its ticker.
+    const remote = remoteAssetByTicker(key);
+    if (remote) return { mint: remoteMint(remote.key) };
     try {
       const found = await this.market.resolveTicker(key);
       const mint = parseAddress(found);
@@ -157,6 +164,8 @@ export class AssetController {
   @Post('by-mint')
   @HttpCode(200)
   async byMint(@Body() body: unknown): Promise<ByMintResponse> {
+    const remote = remoteAssetOf(field(body, 'mint'));
+    if (remote) return { asset: await this.describeRemote(remote) };
     const mint = parseAddress(field(body, 'mint'));
     if (!mint || mint === this.trade.usdc) return { asset: null };
     let view: AssetView | null;
@@ -210,8 +219,44 @@ export class AssetController {
   /** USDC in, token out, for the price line while the reader types. No sign-in needed. */
   @Post('quote')
   @HttpCode(200)
-  quote(@Body() body: unknown): Promise<QuoteResponse> {
+  async quote(@Body() body: unknown): Promise<QuoteResponse> {
+    const remote = remoteAssetOf(field(body, 'mint'));
+    if (remote) {
+      const p = await this.routes.preview(remote, Number(field(body, 'amountUsd') ?? 25));
+      return { outAmount: p.outAmount, pricePerUnit: p.priceUsd, priceImpactPct: p.priceImpactPct ?? 0, route: p.legs.map((l) => l.label) };
+    }
     return this.trade.quote(field(body, 'mint'), field(body, 'amountUsd'));
+  }
+
+  /** A remote asset as the chip and the token room read any asset: named, priced, never "exact". */
+  private async describeRemote(a: RemoteAsset): Promise<MatchedAsset | null> {
+    let price: number | null = null;
+    try {
+      price = await this.routes.priceUsd(a);
+    } catch {
+      // Named without a price is still a room; the route explains itself there.
+    }
+    return {
+      mint: remoteMint(a.key),
+      symbol: a.ticker,
+      name: a.name,
+      displayName: a.name,
+      confidence: 'confident',
+      certainty: 'inferred',
+      score: 0,
+      change24hPct: null,
+      indicativeUsd: price,
+      icon: null,
+      mcap: null,
+      holderCount: null,
+      spark24h: null,
+      safety: { liquidityUsd: null, poolCreatedAtMs: null, mintAuthorityRetained: null, freezeAuthorityRetained: null },
+      decimals: a.decimals,
+      issuer: null,
+      restrictions: [],
+      matchedDirect: [],
+      matchedThematic: [],
+    };
   }
 
   /** The publisher embed's form of the same quote. */

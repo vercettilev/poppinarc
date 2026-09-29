@@ -8,6 +8,7 @@ import { MARKET, type AssetView, type SeriesPoint } from '../market/market.types
 import { ActionsStore } from '../trade/actions';
 import { SWAP_ROUTERS, TradeService } from '../trade/trade.service';
 import { TRADE_ERRORS, type Address, type Quote } from '../trade/types';
+import { RouteQuotes } from '../routes/route-quotes';
 import { AssetController, toSeriesWire } from './asset.controller';
 
 const USDC = '0x3600000000000000000000000000000000000000' as Address;
@@ -47,6 +48,16 @@ describe('AssetController over HTTP', () => {
   let app: INestApplication;
   let base: string;
   const balances = new Map<string, bigint>();
+  // Assets on other chains are priced by the route service; here it answers one fixed route.
+  const routes = {
+    priceUsd: jest.fn(async () => 118.7),
+    preview: jest.fn(async () => ({
+      outAmount: 0.21,
+      priceUsd: 118.7,
+      priceImpactPct: 0,
+      legs: [{ label: 'Arc to Solana, over CCTP' }, { label: 'USDC to SOL on Jupiter' }],
+    })),
+  };
   const market = {
     resolveTicker: jest.fn(async (): Promise<Address | null> => MEME_MIXED as Address),
     describe: jest.fn(async (a: Address): Promise<AssetView | null> => view(a)),
@@ -113,6 +124,7 @@ describe('AssetController over HTTP', () => {
         { provide: ArcChain, useValue: chain },
         { provide: ActionsStore, useValue: actions },
         { provide: CircleWallets, useValue: wallets },
+        { provide: RouteQuotes, useValue: routes },
       ],
     })
       .overrideGuard(FirebaseAuthGuard)
