@@ -4839,7 +4839,7 @@ export function createXStrip(deps: XStripDeps): XStripController {
          product whose whole point is that the currency is never a
          question. A heading that is vaguer than the button that reached
          it makes the reader wonder whether they arrived somewhere else. */
-      title.textContent = "Deposit USDC"
+      title.textContent = ARC_EDITION ? "Add money" : "Deposit USDC"
       panel.appendChild(title)
 
       const note = document.createElement("div")
@@ -4984,7 +4984,7 @@ export function createXStrip(deps: XStripDeps): XStripController {
         if (here === true) {
           note.textContent = "Paid from the wallet on this page. You stay here."
         } else if (here === false) {
-          note.textContent = "Adding funds opens Poppin."
+          note.textContent = ARC_EDITION ? "Opens Poppin to add money." : "Adding funds opens Poppin."
         }
       })
     }
@@ -5239,7 +5239,7 @@ export function createXStrip(deps: XStripDeps): XStripController {
        * as a 401. The handler reads bookAuth at press time, so the same
        * button is always the true next step.
        */
-      const moneyDoor = btn("pick you-add", "Deposit USDC", () => {
+      const moneyDoor = btn("pick you-add", ARC_EDITION ? "Add money" : "Deposit USDC", () => {
         if (bookAuth === "signed-out") {
           deps.signIn()
           return
@@ -9173,7 +9173,7 @@ export function createXStrip(deps: XStripDeps): XStripController {
               // converted and nothing is signed on that side (the guard is
               // in primary/main.tsx's topUp); the shortfall still rides
               // along so the screen can name it.
-              btn("act", "Add USDC", () =>
+              btn("act", ARC_EDITION ? "Add money" : "Add USDC", () =>
                 void deps.topUp?.(busyUsd, undefined, {
                   mint: row.mint,
                   buyUsd: busyUsd,
@@ -9199,7 +9199,9 @@ export function createXStrip(deps: XStripDeps): XStripController {
               if (!b || !doorNote.isConnected) return
               // One unit: a SOL tail here named money the buy cannot spend.
               doorNote.textContent =
-                `${outcome.text} · you have $${b.cashUsd.toFixed(2)} USDC`
+                ARC_EDITION
+                  ? `${outcome.text} · you have $${b.cashUsd.toFixed(2)}`
+                  : `${outcome.text} · you have $${b.cashUsd.toFixed(2)} USDC`
             })
           }
           return

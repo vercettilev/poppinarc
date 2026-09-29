@@ -359,7 +359,8 @@ export const DEPOSIT_ERRORS = {
 
 export interface DepositAddressesView {
   arc: { network: 'Arc'; address: string };
-  others: Array<{ network: DepositNetworkLabel; address: string }>;
+  /** minUsdcRaw: the smallest deposit the sweep moves, raw 6-decimal USDC as a decimal string. */
+  others: Array<{ network: DepositNetworkLabel; address: string; minUsdcRaw: string }>;
 }
 
 export interface DepositView {
@@ -480,7 +481,11 @@ export class DepositsService implements OnApplicationBootstrap, OnModuleDestroy 
           net.kind === 'solana'
             ? await this.wallets.ensureSolanaDepositWallet(uid)
             : await this.wallets.ensureEvmDepositWallet(uid, net.walletsBlockchain);
-        others.push({ network: net.label, address: net.kind === 'evm' ? w.address.toLowerCase() : w.address });
+        others.push({
+          network: net.label,
+          address: net.kind === 'evm' ? w.address.toLowerCase() : w.address,
+          minUsdcRaw: this.minUsdc(net).toString(),
+        });
       } catch (e) {
         this.logger.warn(`${net.label} deposit wallet for ${uid} failed: ${message(e)}`);
       }

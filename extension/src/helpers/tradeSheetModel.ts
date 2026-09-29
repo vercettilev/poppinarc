@@ -1,3 +1,4 @@
+import { ARC_EDITION } from "~/config/edition"
 import { topUpAmount } from "~/helpers/topUpAmount"
 import { MIN_ORDER_USD, planBuyOrder, planSellOrder } from "./orderMath"
 import { PRESET_USD } from "./tradeMath"
@@ -471,7 +472,9 @@ export function viewTradeSheet(args: {
             shortBy === null
               ? walletOnPage
                 ? "Deposit from wallet"
-                : "Deposit USDC"
+                : ARC_EDITION
+                  ? "Add money"
+                  : "Deposit USDC"
               : walletOnPage
                 ? // The wallet popup will ask for this exact figure (see
                   // topUpAmount), so the button names it rather than the
@@ -480,7 +483,9 @@ export function viewTradeSheet(args: {
                 : // The same whole-dollar cover amount the address screen
                   // asks for ("Send at least $26"); two numbers for one
                   // shortfall read as a mistake.
-                  `Deposit $${topUpAmount(shortBy, "cover")} USDC`,
+                  ARC_EDITION
+                  ? `Add $${topUpAmount(shortBy, "cover")}`
+                  : `Deposit $${topUpAmount(shortBy, "cover")} USDC`,
           tone: "fund",
           armed: true,
           fundUsd: shortBy ?? undefined,

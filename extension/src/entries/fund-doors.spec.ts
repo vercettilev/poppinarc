@@ -323,7 +323,7 @@ describe("a wallet account is sent to its own address, and signs nothing", () =>
     // carry the amount the reader was already spending, and the coin, so the
     // address screen can say what the buy needs and return to it.
     expect(chip).toMatch(/const spend = latest\.action\.fundUsd\s*void Promise\.resolve\(\s*deps\.topUp\(spend, undefined, \{/)
-    expect(chip).toMatch(/btn\("act", "Add USDC", \(\) =>\s*void deps\.topUp\?\.\(busyUsd, undefined, \{/)
+    expect(chip).toMatch(/btn\("act", ARC_EDITION \? "Add money" : "Add USDC", \(\) =>\s*void deps\.topUp\?\.\(busyUsd, undefined, \{/)
     // And no door on the chip reaches a conversion of its own.
     expect(chip).not.toMatch(/convertFromPage|convertViaPage|of SOL to USDC/)
   })
@@ -349,7 +349,7 @@ describe("a wallet account is sent to its own address, and signs nothing", () =>
        an unread one used to fall through to the custodial wallet (see
        views/receive-address-account.spec.ts). */
     expect(rcv).toMatch(/const walletAddress = accountUnread\s*\?\s*""\s*: external\s*\? String\(me\?\.external_address\)/)
-    expect(rcv).toMatch(/\{external \? "Add USDC to your wallet" : "Deposit USDC"\}/)
+    expect(rcv).toMatch(/\{external \? "Add USDC to your wallet" : ARC_EDITION \? "Add money" : "Deposit USDC"\}/)
     // Its watch and its return to the buy are untouched.
     expect(rcv).toMatch(/url: "\/fund\/wallet-usdc"/)
     expect(rcv).toMatch(/const extWatching = external && \(need !== null \|\| intent !== null\) && landedUsd === null/)

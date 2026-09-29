@@ -22,6 +22,7 @@
  *    sentence-case rule would rewrite every button for nothing.
  *  - Never a code, never a stack trace, never "error".
  */
+import { ARC_EDITION } from "~/config/edition"
 
 /**
  * THE ERROR SENTENCE THIS FILE EXISTS TO GET RIGHT.
@@ -90,7 +91,7 @@ export const popCopy = {
    *  says deposit. Two names for one act is how a surface stops being
    *  trusted. */
   noBalance: "No balance yet.",
-  noBalanceAction: "Deposit USDC",
+  noBalanceAction: ARC_EDITION ? "Add money" : "Deposit USDC",
 
   /** History. Every pop knows the post it came from, which no other
    *  trading app can say, so the screen is named after them.

@@ -25,6 +25,7 @@
  * dismissed: a person who scrolls away has still seen it, and a coach
  * that reappears on every chip until acknowledged is a nag.
  */
+import { ARC_EDITION } from "~/config/edition"
 import { POPPIN_LOGO_URI } from "~/assets/poppinLogoDataUri"
 import { COACH_SEEN_KEY } from "~/config/onboarding"
 
@@ -102,7 +103,9 @@ const REVEAL_MS = 240
 
 const STEPS: ReadonlyArray<{ text: string; aim: string | null }> = [
   {
-    text: "That's Poppin. Buy or sell anything, on any page you read.",
+    text: ARC_EDITION
+      ? "That's Poppin. Buy what a post mentions, right under it."
+      : "That's Poppin. Buy or sell anything, on any page you read.",
     aim: null,
   },
   { text: "Hover the row to see the chart.", aim: ".more" },
@@ -119,7 +122,10 @@ const STEPS: ReadonlyArray<{ text: string; aim: string | null }> = [
    * the reader has not crossed yet.
    */
   {
-    text: "Your wallet and positions live here. Trades earn points.",
+    // The Arc edition has no points (CAP.gamification is off), so it names only what is here.
+    text: ARC_EDITION
+      ? "Your money and what you own live here."
+      : "Your wallet and positions live here. Trades earn points.",
     aim: ".wal",
   },
 ]

@@ -237,7 +237,7 @@ function arcEdition(manifest: Record<string, unknown>): Record<string, unknown> 
     name: "Poppin Arc (demo)",
     short_name: "Poppin Arc",
     description:
-      "Buy what you see on X with your dollar balance. One tap, right under the post.",
+      "Buy what a post mentions, right under it, in one tap.",
   }
 }
 

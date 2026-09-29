@@ -57,7 +57,7 @@ import { WalletService } from "~/services/WalletService"
 
 import { USDC_MINT } from "~/helpers/depositWatch"
 import { explorerTxUrl } from "~/arc/chain"
-import { CAP } from "~/config/edition"
+import { ARC_EDITION, CAP } from "~/config/edition"
 import { activityRow } from "~/helpers/activityRow"
 
 import type { Token } from "./wallet/types"
@@ -783,7 +783,7 @@ export default function WalletUI() {
             >
               {/* The same words as the screen it opens. "Receive" named a
                   direction; this names the money. */}
-              Deposit USDC
+              {ARC_EDITION ? "Add money" : "Deposit USDC"}
             </Button>
 
             {/* Send is a Solana action. */}
@@ -1329,7 +1329,7 @@ export default function WalletUI() {
               ) : (
                 <Box sx={{ py: 4, textAlign: "center" }}>
                   <Typography sx={{ color: "#8B92A0", fontSize: "14px" }}>
-                    Nothing yet. Deposit USDC to start.
+                    {ARC_EDITION ? "Nothing yet. Add money to start." : "Nothing yet. Deposit USDC to start."}
                   </Typography>
                 </Box>
               )}

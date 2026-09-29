@@ -772,8 +772,8 @@ describe('compat user and wallet routes', () => {
         depositAddresses: jest.fn(async () => ({
           arc: { network: 'Arc' as const, address: '0xAbCdEf0000000000000000000000000000000001' },
           others: [
-            { network: 'Base', address: '0xAbCdEf0000000000000000000000000000000001' },
-            { network: 'Solana', address: 'So1AnaAddrCaseMatters1111111111111111111111' },
+            { network: 'Base', address: '0xAbCdEf0000000000000000000000000000000001', minUsdcRaw: '1000000' },
+            { network: 'Solana', address: 'So1AnaAddrCaseMatters1111111111111111111111', minUsdcRaw: '5000000' },
           ],
         })),
       };
@@ -782,8 +782,8 @@ describe('compat user and wallet routes', () => {
       expect(r.body).toEqual({
         arc: { network: 'Arc', address: '0xabcdef0000000000000000000000000000000001' },
         others: [
-          { network: 'Base', address: '0xabcdef0000000000000000000000000000000001' },
-          { network: 'Solana', address: 'So1AnaAddrCaseMatters1111111111111111111111' },
+          { network: 'Base', address: '0xabcdef0000000000000000000000000000000001', minUsdcRaw: '1000000' },
+          { network: 'Solana', address: 'So1AnaAddrCaseMatters1111111111111111111111', minUsdcRaw: '5000000' },
         ],
       });
       expect(deposits.depositAddresses).toHaveBeenCalledWith(people.lev.uid);

@@ -2,11 +2,11 @@
 #
 # Build the Arc edition of the extension into ~/v2tests/dist-arc.
 #
-#   ~/projects/commentin-mono-arc/extension-new/scripts/build-arc.sh
+#   ~/projects/poppinarc/extension/scripts/build-arc.sh
 #
 # Deliberately NOT ~/v2tests/build.sh: that one builds the live product from
-# ~/projects/commentin-mono and pins the store id. This builds from the Arc
-# worktree, with its own name and no manifest key, so it installs next to the
+# ~/projects/commentin-mono and pins the store id. This builds from poppinarc,
+# with its own name and no manifest key, so it installs next to the
 # store build instead of replacing it. Load it once with chrome://extensions →
 # Load unpacked → ~/v2tests/dist-arc, then just press reload after each build.
 

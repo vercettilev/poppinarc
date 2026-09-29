@@ -5,6 +5,7 @@
  * compiles JSX with React's runtime; without the pragma Preact silently
  * drops every child and render() succeeds into an empty shadow root.
  */
+import { ARC_EDITION } from "~/config/edition"
 import type { ComponentChildren } from "preact"
 import { normalizeDecimal } from "~/helpers/decimalInput"
 import { decimalsFor, viewTradeSheet, type Reader } from "~/helpers/tradeSheetModel"
@@ -497,7 +498,7 @@ export function TradePanel({
             thesis is that the currency is never a question.
           */}
           <button data-act="gate-topup" onClick={() => handlers.onGate?.("topup")}>
-            Deposit USDC
+            {ARC_EDITION ? "Add money" : "Deposit USDC"}
           </button>
         </>
       ) : view.action.tone === "fund" ? (

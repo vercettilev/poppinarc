@@ -1,0 +1,470 @@
+import { Box, Button, CircularProgress, Typography } from "@mui/material"
+import { useQueryClient } from "@tanstack/react-query"
+import { useEffect, useState } from "react"
+import logo from "~/assets/logo.png"
+import { USDC_MINT } from "~/arc/chain"
+import { depositCardView, pillAddress, useDepositAddresses } from "~/arc/depositAddresses"
+import { QrCode } from "~/components/QrCode"
+import { useMyWallet, useWalletTokens } from "~/hooks/useWallet"
+import { QuietAction, StepFrame } from "./StepFrame"
+
+/**
+ * THE ARC EDITION'S LAST ONBOARDING SCREEN: money in, before the first post.
+ *
+ * The store build lets the chip ask for money at the moment of a Buy. The Arc
+ * edition asks here instead, once, right after Poppin is turned on, because
+ * its account is a Circle wallet that exists from sign-in and the one thing
+ * standing between a reader and "See it. Tap it." is a balance. The screen
+ * is skippable in one quiet tap, and a reader who already has money never
+ * sees it.
+ *
+ * TWO STATES, ONE SCREEN. Waiting shows the address; the moment the USDC row
+ * of /wallets/tokens rises above where it started, the same screen says so
+ * with the amount that arrived. Money that lands on another network is swept
+ * to Arc by arc-api and shows up here the same way, as USDC on Arc.
+ *
+ * WORDS. Only the line above the address names the token and the network:
+ * money sent on the wrong network does not arrive, so that one line is
+ * literal. Everything else is plain (Lev, 2026-09-28: no "dollar", no
+ * "trade", short, classy, obvious).
+ *
+ * `onDone` is ShowMeStep's handoff to X, which owns the telemetry and the
+ * navigation; this screen never leaves the page on its own.
+ */
+const FONT = "PoppinSans, -apple-system, 'Segoe UI', Roboto, sans-serif"
+const MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+const ACCENT = "#68C6FF"
+
+/** Re-read the balance this often while waiting. The server caches tokens for 1.5 s. */
+const WATCH_MS = 5_000
+/** How long the first balance read may take before the screen shows without it. */
+const FIRST_READ_WAIT_MS = 4_000
+/** A reader who already holds at least this much goes straight on. */
+const ALREADY_FUNDED_USDC = 1
+/** Rises smaller than this are rounding, not an arrival. */
+const ARRIVAL_EPSILON = 0.005
+
+const track = (action: string) => {
+  try {
+    void chrome.runtime.sendMessage({
+      type: "SPOT_TELEMETRY",
+      event: "onboarding_step",
+      payload: { step: "/add-money", action },
+    })
+  } catch {
+    // Counting is never worth failing the step over.
+  }
+}
+
+/** The edition's USDC, as a number, from a /wallets/tokens answer; null when unreadable. */
+export function usdcHeld(body: unknown): number | null {
+  const rows = (body as { tokens?: unknown } | null)?.tokens
+  if (!Array.isArray(rows)) return null
+  const row = rows.find(
+    (t: { mint?: unknown }) => typeof t?.mint === "string" && t.mint.toLowerCase() === USDC_MINT.toLowerCase(),
+  ) as { uiAmount?: unknown } | undefined
+  if (!row) return 0
+  const n = Number(row.uiAmount)
+  return Number.isFinite(n) && n >= 0 ? n : null
+}
+
+/** "0x7a3f 91c0 4b2e … e5d1 c91e": the head to recognise, the tail to check. */
+export function groupedAddress(a: string): string {
+  if (!/^0x[0-9a-fA-F]{40}$/.test(a)) return pillAddress(a)
+  return `${a.slice(0, 6)} ${a.slice(6, 10)} ${a.slice(10, 14)} … ${a.slice(-8, -4)} ${a.slice(-4)}`
+}
+
+export const money = (n: number): string =>
+  `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+export function ArcAddMoney({ onDone }: { onDone: () => void | Promise<void> }) {
+  const queryClient = useQueryClient()
+  const { data: walletInfo } = useMyWallet()
+  const { data: deposit } = useDepositAddresses(true)
+  const { data: tokens, isError: tokensUnreadable } = useWalletTokens()
+  const held = usdcHeld(tokens)
+
+  /* The baseline is the first balance that was actually READ. State, not a
+     ref: learning it has to draw the screen again. An unreadable or slow
+     first read never becomes a zero baseline (arc-api answers 503 rather
+     than a zero for exactly this reason, see readTokens): it only lets the
+     screen show without one, and the baseline waits for a real read. A zero
+     there would announce money the reader already had as just arrived. */
+  const [start, setStart] = useState<number | null>(null)
+  const [showWithoutStart, setShowWithoutStart] = useState(false)
+  const [autoLeaving, setAutoLeaving] = useState(false)
+  const [landed, setLanded] = useState<number | null>(null)
+  const [skipping, setSkipping] = useState(false)
+  const [copied, setCopied] = useState<string | null>(null)
+  const [othersOpen, setOthersOpen] = useState(false)
+  const [tabId, setTabId] = useState<number | null>(null)
+
+  /* The side panel opens only from a gesture, and an await between the tap
+     and the call can cost the gesture, so the tab is known before the tap.
+     The tab, not the window: a tab dragged to another window keeps its id. */
+  useEffect(() => {
+    try {
+      chrome.tabs.getCurrent((t) => {
+        if (typeof t?.id === "number") setTabId(t.id)
+      })
+    } catch {
+      // No tabs API here: the button then simply is not offered.
+    }
+  }, [])
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setShowWithoutStart(true), FIRST_READ_WAIT_MS)
+    return () => window.clearTimeout(t)
+  }, [])
+
+  const leave = async () => {
+    if (skipping) return
+    setSkipping(true)
+    try {
+      await onDone()
+    } catch {
+      // Still here: the buttons work again.
+      setSkipping(false)
+    }
+    // On success the page is being replaced; the buttons stay disabled.
+  }
+
+  /* Somebody who already has money has nothing to do here and is sent on,
+     once, behind the spinner rather than past a screen that flashes. */
+  useEffect(() => {
+    if (landed !== null || autoLeaving) return
+    if (held === null) {
+      if (tokensUnreadable) setShowWithoutStart(true)
+      return
+    }
+    if (start === null) {
+      setStart(held)
+      if (held >= ALREADY_FUNDED_USDC) {
+        track("already_funded")
+        setAutoLeaving(true)
+        void onDone()
+      } else {
+        track("shown")
+      }
+      return
+    }
+    if (held - start > ARRIVAL_EPSILON) {
+      setLanded(held - start)
+      track("landed")
+      // The chips on open tabs learn now rather than on the watcher's next beat.
+      try {
+        void chrome.runtime.sendMessage({ type: "BOOK_CHANGED_NOW" })
+      } catch {
+        // Nothing listening is fine; the chips catch up on their own.
+      }
+    }
+  }, [held, tokensUnreadable, landed, start, autoLeaving])
+
+  const waiting = landed === null && !autoLeaving
+
+  const fallback = String(
+    (walletInfo as { depositAddress?: unknown } | undefined)?.depositAddress ??
+      (walletInfo as { wallet?: { public_key?: unknown } } | undefined)?.wallet?.public_key ??
+      "",
+  )
+  const view = depositCardView(deposit ?? null, fallback)
+  const addressMissing = !view.arcAddress
+
+  /* One beat for everything this screen waits on: the balance, and the
+     address itself while neither route has produced it yet. */
+  useEffect(() => {
+    if (!waiting) return
+    const timer = window.setInterval(() => {
+      void queryClient.invalidateQueries({ queryKey: ["wallet", "tokens"] })
+      if (addressMissing) {
+        void queryClient.invalidateQueries({ queryKey: ["arc", "deposit-addresses"] })
+        void queryClient.invalidateQueries({ queryKey: ["wallet", "me"] })
+      }
+    }, WATCH_MS)
+    return () => window.clearInterval(timer)
+  }, [waiting, addressMissing])
+
+  const copy = (key: string, address: string) => {
+    void navigator.clipboard.writeText(address)
+    track(`copied_${key.toLowerCase()}`)
+    setCopied(key)
+    window.setTimeout(() => setCopied((k) => (k === key ? null : k)), 1800)
+  }
+
+  const openPanel = () => {
+    if (tabId === null) return
+    track("open_panel")
+    try {
+      chrome.sidePanel.open({ tabId }).catch(() => {
+        // Refused outside a gesture: the toolbar icon opens it just the same.
+      })
+    } catch {
+      // No side panel API: same answer.
+    }
+  }
+
+  /* Until the first balance read there is nothing honest to show: an
+     "Add money" screen that vanishes a moment later for a funded reader
+     would be a flicker, not a step. A slow or failed read shows the
+     screen after FIRST_READ_WAIT_MS all the same. */
+  if (autoLeaving || (start === null && !showWithoutStart && landed === null)) {
+    return (
+      <Box sx={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
+        <CircularProgress size={26} sx={{ color: ACCENT }} />
+      </Box>
+    )
+  }
+
+  if (landed !== null) {
+    return (
+      <StepFrame
+        title="It's here."
+        subtitle={`${money(landed)} added. Tap what you see.`}
+        hero={<Arrived />}
+        actions={
+          <>
+            <Button onClick={() => void leave()} disabled={skipping} sx={PRIMARY_SX}>
+              Go to X
+            </Button>
+            {tabId !== null && (
+              <Button onClick={openPanel} sx={SECONDARY_SX}>
+                Open Poppin
+              </Button>
+            )}
+          </>
+        }
+      />
+    )
+  }
+
+  return (
+    <StepFrame
+      title="Add money"
+      subtitle="Scan or copy. It lands in seconds."
+      actions={<QuietAction label="Look around first" disabled={skipping} onClick={() => { track("skipped"); void leave() }} />}
+    >
+      {view.arcAddress ? (
+        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+          <Box sx={CARD_SX}>
+            <QrCode value={view.arcAddress} size={132} mark={logo} />
+            <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
+              <Typography sx={{ fontFamily: FONT, fontSize: 14, fontWeight: 500, color: "#EAF2FB", lineHeight: 1.4 }}>
+                Send USDC on Arc to this address.
+              </Typography>
+              <Typography sx={{ fontFamily: MONO, fontSize: 14, color: "#EAF2FB", letterSpacing: ".01em" }}>
+                {groupedAddress(view.arcAddress)}
+              </Typography>
+              <Button
+                onClick={() => copy("Arc", view.arcAddress)}
+                sx={{
+                  mt: 0.5,
+                  height: 36,
+                  px: 2,
+                  borderRadius: "10px",
+                  fontFamily: FONT,
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  textTransform: "none",
+                  color: "#06202E",
+                  backgroundColor: copied === "Arc" ? "#4ADE80" : ACCENT,
+                  "&:hover": { backgroundColor: copied === "Arc" ? "#4ADE80" : "#8AD4FF" },
+                }}
+              >
+                {copied === "Arc" ? "Copied" : "Copy address"}
+              </Button>
+            </Box>
+          </Box>
+
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
+            <Box
+              sx={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                backgroundColor: ACCENT,
+                boxShadow: "0 0 0 5px rgba(104,198,255,.14)",
+                animation: "arc-watch 1.8s ease-in-out infinite",
+                "@keyframes arc-watch": { "0%,100%": { opacity: 1 }, "50%": { opacity: 0.45 } },
+                "@media (prefers-reduced-motion: reduce)": { animation: "none" },
+              }}
+            />
+            <Typography sx={{ fontFamily: FONT, fontSize: 14, color: "rgba(255,255,255,.7)" }}>
+              We'll let you know when it arrives.
+            </Typography>
+          </Box>
+
+          {view.others.length > 0 && (
+            <Box sx={{ width: "100%" }}>
+              <Box
+                component="button"
+                type="button"
+                onClick={() => {
+                  if (!othersOpen) track("others_opened")
+                  setOthersOpen((o) => !o)
+                }}
+                aria-expanded={othersOpen}
+                sx={ROW_SX}
+              >
+                <Box sx={ICON_SX}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M7 7h11l-3-3" />
+                    <path d="M17 17H6l3 3" />
+                  </svg>
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography sx={{ fontFamily: FONT, fontSize: 14.5, fontWeight: 600, color: "#EAF2FB" }}>
+                    Money somewhere else?
+                  </Typography>
+                  <Typography sx={{ fontFamily: FONT, fontSize: 12.5, color: "#8CA3BD", mt: 0.25 }}>
+                    Send it on another network. We'll bring it to you.
+                  </Typography>
+                </Box>
+                <Box
+                  component="span"
+                  sx={{ color: "#74849A", fontSize: 20, transform: othersOpen ? "rotate(90deg)" : "none", transition: "transform .16s ease-out" }}
+                >
+                  {"›"}
+                </Box>
+              </Box>
+              {othersOpen && (
+                <Box sx={{ display: "grid", gap: 0.75, mt: 0.75 }}>
+                  {view.others.map((o) => {
+                    const key = `${o.network}|${o.address}`
+                    const done = copied === key
+                    return (
+                      <Box
+                        key={key}
+                        component="button"
+                        type="button"
+                        onClick={() => copy(key, o.address)}
+                        aria-label={`Copy your ${o.network} address`}
+                        sx={{ ...ROW_SX, py: 1.25, color: done ? "#4ADE80" : "#EAF2FB" }}
+                      >
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography sx={{ fontFamily: FONT, fontSize: 13.5, fontWeight: 600 }}>
+                            {`USDC on ${o.network}`}
+                            {o.minUsdc && (
+                              <Box component="span" sx={{ fontWeight: 400, color: "#8CA3BD" }}>{` · from ${o.minUsdc} USDC`}</Box>
+                            )}
+                          </Typography>
+                          <Typography sx={{ fontFamily: MONO, fontSize: 12, color: done ? "#4ADE80" : "#8CA3BD", mt: 0.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {pillAddress(o.address)}
+                          </Typography>
+                        </Box>
+                        <Typography sx={{ fontFamily: FONT, fontSize: 12.5, fontWeight: 600, flexShrink: 0 }}>
+                          {done ? "Copied" : "Copy"}
+                        </Typography>
+                      </Box>
+                    )
+                  })}
+                  <Typography sx={{ fontFamily: FONT, fontSize: 12, color: "rgba(255,255,255,.4)", textAlign: "center", lineHeight: 1.45, mt: 0.25 }}>
+                    {view.othersNote}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          )}
+        </Box>
+      ) : (
+        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+          <CircularProgress size={22} sx={{ color: ACCENT }} />
+        </Box>
+      )}
+    </StepFrame>
+  )
+}
+
+const Arrived = () => (
+  <Box
+    sx={{
+      width: 64,
+      height: 64,
+      borderRadius: "50%",
+      display: "grid",
+      placeItems: "center",
+      color: "#4ADE80",
+      backgroundColor: "rgba(48,209,88,.12)",
+      boxShadow: "inset 0 0 0 1px rgba(74,222,128,.3)",
+      animation: "arc-arrived 520ms cubic-bezier(.2,1.3,.35,1) both",
+      "@keyframes arc-arrived": { "0%": { opacity: 0, transform: "scale(.6)" }, "100%": { opacity: 1, transform: "none" } },
+      "@media (prefers-reduced-motion: reduce)": { animation: "none" },
+    }}
+  >
+    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
+    </svg>
+  </Box>
+)
+
+const CARD_SX = {
+  width: "100%",
+  boxSizing: "border-box",
+  p: 2,
+  borderRadius: "18px",
+  display: "flex",
+  alignItems: "center",
+  gap: 2.25,
+  textAlign: "left",
+  backgroundColor: "rgba(255,255,255,.04)",
+  boxShadow: "inset 0 0 0 1px rgba(122,201,255,.16)",
+} as const
+
+const ROW_SX = {
+  width: "100%",
+  boxSizing: "border-box",
+  display: "flex",
+  alignItems: "center",
+  gap: 1.75,
+  px: 2,
+  py: 1.75,
+  borderRadius: "16px",
+  border: 0,
+  cursor: "pointer",
+  font: "inherit",
+  textAlign: "left",
+  color: "#EAF2FB",
+  backgroundColor: "rgba(255,255,255,.03)",
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,.07)",
+  "&:hover": { backgroundColor: "rgba(255,255,255,.06)" },
+} as const
+
+const ICON_SX = {
+  width: 36,
+  height: 36,
+  borderRadius: "50%",
+  display: "grid",
+  placeItems: "center",
+  flexShrink: 0,
+  color: "#9FD9FF",
+  backgroundColor: "rgba(104,198,255,.10)",
+  "& svg": { width: 18, height: 18 },
+} as const
+
+const PRIMARY_SX = {
+  width: "100%",
+  py: 1.75,
+  borderRadius: "16px",
+  fontFamily: FONT,
+  fontSize: 17,
+  fontWeight: 700,
+  textTransform: "none",
+  color: "#06202E",
+  backgroundColor: ACCENT,
+  boxShadow: "0 6px 30px rgba(104,198,255,.25)",
+  "&:hover": { backgroundColor: "#8AD4FF" },
+  "&.Mui-disabled": { backgroundColor: "rgba(104,198,255,.35)", color: "#06202E" },
+} as const
+
+const SECONDARY_SX = {
+  width: "100%",
+  py: 1.5,
+  borderRadius: "16px",
+  fontFamily: FONT,
+  fontSize: 15,
+  fontWeight: 600,
+  textTransform: "none",
+  color: "rgba(255,255,255,.85)",
+  backgroundColor: "rgba(255,255,255,.05)",
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,.10)",
+  "&:hover": { backgroundColor: "rgba(255,255,255,.09)" },
+} as const

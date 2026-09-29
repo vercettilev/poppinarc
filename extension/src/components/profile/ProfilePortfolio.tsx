@@ -1,3 +1,4 @@
+import { ARC_EDITION } from "~/config/edition"
 import { JUICE } from "~/theme/juice"
 import { alpha, Box, Typography } from "@mui/material"
 import { readBookCache, writeBookCache } from "~/helpers/bookCache"
@@ -121,7 +122,7 @@ export function ProfilePortfolio() {
             "&:hover": { backgroundColor: "#86D2FF" },
           }}
         >
-          Deposit USDC
+          {ARC_EDITION ? "Add money" : "Deposit USDC"}
         </Box>
         <Typography
           sx={{ fontSize: 11, color: FAINT, mt: 1, textAlign: "center", lineHeight: 1.5 }}

@@ -35,6 +35,8 @@ import { ensureUser, within } from './users.controller';
 export interface DepositNetworkAddress {
   network: string;
   address: string;
+  /** The sweep's floor on this network, raw 6-decimal USDC. The card promises the move only above it. */
+  minUsdcRaw?: string;
 }
 export interface DepositAddresses {
   arc: { network: 'Arc'; address: string };
@@ -635,7 +637,11 @@ export class ArcDepositsController {
         const d = await this.deposits.depositAddresses(user.uid);
         return {
           arc: { network: 'Arc', address: evmLower(d.arc.address) },
-          others: d.others.map((o) => ({ network: o.network, address: evmLower(o.address) })),
+          others: d.others.map((o) => ({
+            network: o.network,
+            address: evmLower(o.address),
+            ...(o.minUsdcRaw ? { minUsdcRaw: o.minUsdcRaw } : {}),
+          })),
         };
       }
       const w = await this.wallets.ensureArcWallet(user.uid);

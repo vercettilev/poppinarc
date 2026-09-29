@@ -67,18 +67,26 @@ const Disc = ({ children }: { children: React.ReactNode }) => (
 
 /** WIF's own face, baked in (assets/wifLogoDataUri.ts): the first screen waits on nothing. */
 /**
- * THE ARC EDITION SHOWS BITCOIN, the asset its chip actually trades there
- * (cirBTC, Circle's Bitcoin on Arc). Drawn, not fetched: the welcome page
+ * THE ARC EDITION SHOWS EUROS, a plan rather than a punt: a person putting
+ * money aside for a trip, and the chip under it buying Circle's euro (EURC)
+ * in one tap. $EUR resolves to EURC on arc-api's by-ticker lane, so this is
+ * the chip the reader will really meet. Drawn, not fetched: the welcome page
  * loads no remote images, the same reason the WIF face is a data URI.
  */
 const DEMO = ARC_EDITION
   ? {
-      text: "bitcoin just took back 84k and the timeline is asleep. finger on the button",
-      ticker: "BTC",
-      price: "$84,120",
-      change: "+1.4%",
+      name: "maya",
+      handle: "@mayalaurent \u00B7 1h",
+      avatar: "linear-gradient(140deg,#E0A6C8,#7A4C9A)",
+      text: "Lisbon in June. Putting a little $EUR aside for it.",
+      ticker: "EUR",
+      price: "$1.1368",
+      change: "+0.2%",
     }
   : {
+      name: "ada",
+      handle: "@adatrades \u00B7 2m",
+      avatar: "linear-gradient(135deg,#5B8CFF,#9B5BFF)",
       text: "dogwifhat is waking up again, volume doubled in an hour. finger on the button",
       ticker: "WIF",
       price: "$0.1778",
@@ -97,15 +105,15 @@ const ChipIcon = () =>
         height: 24,
         borderRadius: "50%",
         flexShrink: 0,
-        background: "linear-gradient(140deg,#F7A33B,#E2761B)",
+        background: "linear-gradient(140deg,#5D8BF4,#1F4FC8)",
         color: "#fff",
         fontFamily: FONT,
-        fontSize: 14,
+        fontSize: 13,
         fontWeight: 800,
         lineHeight: 1,
       }}
     >
-      {"\u20BF"}
+      {"\u20AC"}
     </Box>
   ) : (
     <Box
@@ -137,17 +145,26 @@ export const ChipDemo = () => (
           width: 38,
           height: 38,
           borderRadius: "50%",
-          background: "linear-gradient(135deg,#5B8CFF,#9B5BFF)",
+          background: DEMO.avatar,
           flexShrink: 0,
         }}
       />
       <Box>
-        <Box sx={{ fontWeight: 700, fontSize: 15, color: "#e7e9ea" }}>ada</Box>
-        <Box sx={{ color: "#71767b", fontSize: 14 }}>@adatrades · 2m</Box>
+        <Box sx={{ fontWeight: 700, fontSize: 15, color: "#e7e9ea" }}>{DEMO.name}</Box>
+        <Box sx={{ color: "#71767b", fontSize: 14 }}>{DEMO.handle}</Box>
       </Box>
     </Box>
     <Box sx={{ fontSize: 15, lineHeight: 1.5, color: "#e7e9ea" }}>
-      {DEMO.text}
+      {/* A cashtag is X's link blue, as the reader will see it on X. */}
+      {DEMO.text.split(/(\$[A-Z]{2,6}\b)/).map((part, i) =>
+        i % 2 === 1 ? (
+          <Box key={i} component="span" sx={{ color: "#1d9bf0" }}>
+            {part}
+          </Box>
+        ) : (
+          part
+        ),
+      )}
     </Box>
 
     {/* .chip > .row: the transcription starts here. */}

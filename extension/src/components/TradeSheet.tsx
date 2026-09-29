@@ -40,7 +40,7 @@ import {
 } from "~/helpers/orderMath"
 import { qtyText } from "~/helpers/qtyText"
 import { pressKey } from "~/entries/contentScript/x/inlineBuy"
-import { CAP } from "~/config/edition"
+import { ARC_EDITION, CAP } from "~/config/edition"
 
 /**
  * The panel's OWN money UI.
@@ -977,7 +977,7 @@ export function TradeSheet({
                 sx={{ fontSize: 11, fontWeight: 700, color: ACCENT, mt: 0.5, cursor: "pointer" }}
               >
                 {/* "Deposit USDC", like every other door to this room. */}
-                Deposit USDC →
+                {ARC_EDITION ? "Add money" : "Deposit USDC"} →
               </Typography>
               {/* And the one-step version, right here: Blink's hosted flow
                   inline, so bringing money in does not cost a navigation

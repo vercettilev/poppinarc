@@ -35,6 +35,17 @@ function tsFiles(dir = SRC): string[] {
  */
 const BANNED = /(["'`])\s*(Top up|Add cash|Add funds|Add money)\b/i
 
+/**
+ * THE ARC EDITION HAS ITS OWN ONE VERB, "Add money" (Lev, 2026-09-28: no
+ * jargon, nothing about dollars or USDC on a door). One verb per edition,
+ * never two in one build: "Add money" may only appear as the Arc arm of an
+ * ARC_EDITION choice, or in a file that exists only in the Arc edition.
+ */
+const ARC_VERB = /(["'`])\s*(Add money|Add \$)/
+const ARC_ONLY = [/^arc\//, /^entries\/welcome\/components\/ArcAddMoney\.tsx$/]
+const arcArm = (lines: string[], i: number) =>
+  lines.slice(Math.max(0, i - 2), i + 1).some((l) => l.includes("ARC_EDITION"))
+
 describe("every door that brings money in says the same verb", () => {
   it("looks at strings, not at JSX, so the chip is inside the sweep", () => {
     // A canary: the chip's label lives in a model, as a template literal.
@@ -50,9 +61,14 @@ describe("every door that brings money in says the same verb", () => {
     const offenders: string[] = []
     for (const file of tsFiles()) {
       const code = stripComments(readFileSync(file, "utf8"))
-      for (const line of code.split("\n")) {
-        if (BANNED.test(line)) offenders.push(`${file.slice(SRC.length + 1)}: ${line.trim()}`)
-      }
+      const rel = file.slice(SRC.length + 1)
+      const arcOnly = ARC_ONLY.some((r) => r.test(rel))
+      const lines = code.split("\n")
+      lines.forEach((line, i) => {
+        if (!BANNED.test(line)) return
+        if (ARC_VERB.test(line) && (arcOnly || arcArm(lines, i))) return
+        offenders.push(`${rel}: ${line.trim()}`)
+      })
       // And the JSX half, which the first version of this sweep covered.
       if (/>\s*(Add cash|Top up)\s*[›→]?\s*</.test(code)) {
         offenders.push(`${file.slice(SRC.length + 1)}: JSX text`)
@@ -75,6 +91,24 @@ describe("every door that brings money in says the same verb", () => {
     ]) {
       expect(stripComments(read(f)), f).toMatch(/Deposit USDC/)
     }
+  })
+
+  it("says Add money on every one of those doors in the Arc edition", () => {
+    for (const f of [
+      "views/receive.tsx",
+      "components/FundDoor.tsx",
+      "components/TradeSheet.tsx",
+      "components/profile/ProfilePortfolio.tsx",
+      "components/SpotCard/TradePanel.tsx",
+      "views/wallet-ui.tsx",
+      "entries/contentScript/x/xStrip.ts",
+      "helpers/popLanguage.ts",
+      "helpers/tradeSheetModel.ts",
+    ]) {
+      expect(stripComments(read(f)), f).toMatch(/ARC_EDITION\s*\?\s*"Add money"/)
+    }
+    expect(stripComments(read("helpers/tradeSheetModel.ts"))).toMatch(/`Add \$\$\{topUpAmount\(shortBy, "cover"\)\}`/)
+    expect(stripComments(read("entries/welcome/components/ArcAddMoney.tsx"))).toMatch(/title="Add money"/)
   })
 
   it("keeps the currency only where it is the instruction", () => {

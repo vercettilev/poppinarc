@@ -428,7 +428,7 @@ const Receive: React.FC<ReceiveProps> = ({
           <ArrowBackIcon sx={{ fontSize: 16 }} />
         </Box>
         <Typography sx={{ fontSize: 19, fontWeight: 700 }}>
-          {external ? "Add USDC to your wallet" : "Deposit USDC"}
+          {external ? "Add USDC to your wallet" : ARC_EDITION ? "Add money" : "Deposit USDC"}
         </Typography>
       </Box>
 
@@ -441,7 +441,9 @@ const Receive: React.FC<ReceiveProps> = ({
           ? need !== null
             ? `Your buy needs $${need} USDC in Phantom.${extUsdc !== null ? ` It holds $${extUsdc.toFixed(2)}.` : ""}`
             : "Your trades come from this wallet, your own. Send USDC to it from an exchange or another wallet."
-          : `${copyForChain.token} you send here becomes your trading balance.`}
+          : ARC_EDITION
+            ? "It goes straight to your Poppin balance."
+            : `${copyForChain.token} you send here becomes your trading balance.`}
         {/* True on every money path now — the terminal swap tops up from
             the gas tank like the spot rail always did. It is also the one
             sentence that makes every remaining SOL sighting harmless: you

@@ -117,7 +117,7 @@ export function ArcDepositCard({
         ))}
       </Box>
       <Typography sx={{ fontSize: 11.5, color: FAINT, mt: 1, textAlign: "center", lineHeight: 1.45 }}>
-        Send USDC on Arc. It is ready to trade the moment it lands.
+        Send USDC on Arc. It's ready the moment it lands.
       </Typography>
 
       {view.others.length > 0 && (

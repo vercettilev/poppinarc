@@ -167,10 +167,10 @@ describe("the funding door on a wallet account", () => {
   })
 
   it("wears Lev's wording, and the room it opens wears the same one", () => {
-    expect(door).toMatch(/\{external \? "Add USDC to your wallet" : "Deposit USDC"\}/)
+    expect(door).toMatch(/\{external \? "Add USDC to your wallet" : ARC_EDITION \? "Add money" : "Deposit USDC"\}/)
     // The door and the room say one thing, as they do on the custodial side.
     expect(stripComments(read("views/receive.tsx"))).toMatch(
-      /\{external \? "Add USDC to your wallet" : "Deposit USDC"\}/,
+      /\{external \? "Add USDC to your wallet" : ARC_EDITION \? "Add money" : "Deposit USDC"\}/,
     )
   })
 

@@ -1,3 +1,5 @@
+import { ARC_EDITION } from "~/config/edition"
+
 /**
  * Onboarding V2 switch — "önce ürün, sonra hesap, en son para".
  *
@@ -33,12 +35,20 @@ export const ONBOARDING_V2: boolean = flagOn(
  * (visible logged-out, and the first chip lands under our own post) and
  * replaces this the moment it exists.
  */
-export const ONBOARDING_X_URL = "https://x.com/solana/status/2100237359380099544"
+export const ONBOARDING_X_URL = ARC_EDITION
+  ? "https://x.com/search?q=%24BTC"
+  : "https://x.com/solana/status/2100237359380099544"
 /* @solana's own post. It carries no $SOL cashtag and does not need one:
    the account is in xMatch's handle aliases and that tier is author-first,
    so the chip resolves to SOL from who wrote it, whatever the text says.
    Verified public via the syndication endpoint on 2026-09-16. Not ours, so
-   it can vanish; a Poppin-owned $SOL post replaces it the day one exists. */
+   it can vanish; a Poppin-owned $SOL post replaces it the day one exists.
+
+   THE ARC EDITION cannot land there: @solana resolves to SOL, which is not
+   on Arc, so the chip under it would take itself down. It lands on the
+   $BTC search instead, where $BTC resolves to Circle's Bitcoin on Arc on
+   every post, until a Poppin post with a $EUR or $BTC cashtag exists to
+   point at. */
 
 /**
  * WRITTEN BY THE COACH ITSELF, THE MOMENT IT IS SHOWN, and read by nothing

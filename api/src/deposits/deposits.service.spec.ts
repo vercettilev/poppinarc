@@ -434,8 +434,8 @@ describe('depositAddresses', () => {
     expect(out).toEqual({
       arc: { network: 'Arc', address: ARC_LOWER },
       others: [
-        { network: 'Solana', address: SOL_ADDR },
-        { network: 'Base', address: ARC_LOWER },
+        { network: 'Solana', address: SOL_ADDR, minUsdcRaw: '1000000' },
+        { network: 'Base', address: ARC_LOWER, minUsdcRaw: '1000000' },
       ],
     });
     expect(wallets.ensureEvmDepositWallet).toHaveBeenCalledWith('u1', 'BASE-SEPOLIA');
@@ -445,7 +445,7 @@ describe('depositAddresses', () => {
   it('leaves EVM networks out for a user whose Arc wallet is an EOA: that deposit wallet would wait for ETH', async () => {
     const { service, wallets } = setup({ cfg: { networks: ['BASE', 'SOL'] } });
     const out = await service.depositAddresses('u1');
-    expect(out.others).toEqual([{ network: 'Solana', address: SOL_ADDR }]);
+    expect(out.others).toEqual([{ network: 'Solana', address: SOL_ADDR, minUsdcRaw: '1000000' }]);
     expect(wallets.ensureEvmDepositWallet).not.toHaveBeenCalled();
   });
 

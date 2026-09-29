@@ -535,12 +535,12 @@ export const SignInStep = ({
         // printing each mark twice since they are already on the buttons.
         // Sign-in is a decision screen; the button IS the content.
         <StepFrame
-          title="Trade from the tweet."
+          title={ARC_EDITION ? "See it. Tap it. It's yours." : "Trade from the tweet."}
           // The one thing the chip below cannot show is WHERE it shows up;
           // one calm line carries that, three concrete places rather than
           // three brand names. Folded into the headline it ran to four
           // lines and read as a wall.
-          subtitle={ARC_EDITION ? "Buy what you see with your dollar balance. On X, Reddit, and everywhere else you scroll." : ONBOARDING_V2 ? "Tokens and tokenized stocks. On X, Reddit, and everywhere else you scroll." : "One account to trade the internet."}
+          subtitle={ARC_EDITION ? "Right where you read. Powered by Circle." : ONBOARDING_V2 ? "Tokens and tokenized stocks. On X, Reddit, and everywhere else you scroll." : "One account to trade the internet."}
           // The chip itself, drawn as the product draws it, under a tweet
           // that never said a cashtag.
           hero={ONBOARDING_V2 ? <ChipDemo /> : undefined}

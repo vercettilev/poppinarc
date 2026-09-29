@@ -5,6 +5,7 @@ import { ONBOARDING_X_URL } from "~/config/onboarding"
 import { checkPermissions, requestPermissions } from "~/helpers/permissionHelper"
 import { useCurrentUser } from "~/hooks/useCurrentUser"
 import { QuietAction, StepFrame } from "../StepFrame"
+import { ArcAddMoney } from "../ArcAddMoney"
 import { switchAccount } from "~/helpers/switchAccount"
 import { useNavigate } from "react-router"
 
@@ -48,6 +49,11 @@ export const ShowMeStep = () => {
      fix. The failure keeps its message so it can be read off the screen. */
   const [failure, setFailure] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  /* THE ARC EDITION ASKS FOR MONEY BEFORE THE FIRST POST: its account is a
+     Circle wallet from sign-in, and a Buy with nothing behind it is the one
+     dead end left. Rendered here rather than routed, so the handoff to X
+     stays this screen's, in one place (onboarding-handoff.spec). */
+  const [addingMoney, setAddingMoney] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -152,6 +158,10 @@ export const ShowMeStep = () => {
         setGranted(false)
         return
       }
+      if (ARC_EDITION) {
+        setAddingMoney(true)
+        return
+      }
       await handoff()
     } catch (err) {
       const why = err instanceof Error ? err.message : String(err)
@@ -163,10 +173,16 @@ export const ShowMeStep = () => {
     }
   }
 
+  if (addingMoney) return <ArcAddMoney onDone={handoff} />
+
   return (
     <StepFrame
       title={
-        refused
+        ARC_EDITION
+          ? refused
+            ? "One more tap."
+            : "You're in."
+          : refused
           ? "Poppin needs to see the page."
           : granted
             ? "You're in."
@@ -175,7 +191,11 @@ export const ShowMeStep = () => {
       subtitle={
         failure
           ? `Chrome did not open the permission prompt: ${failure}`
-          : refused
+          : ARC_EDITION
+            ? refused
+              ? "Chrome asks once, so Poppin can appear under the posts you read."
+              : "Poppin appears under the posts you read."
+            : refused
             ? "Without that, Poppin can't show you anything. Pages are matched to markets in the moment, with no name attached."
             : granted
               ? "Poppin is on. Tweets, Reddit posts, any page you read. We'll start on X."
@@ -203,7 +223,7 @@ export const ShowMeStep = () => {
             "&.Mui-disabled": { backgroundColor: "rgba(104,198,255,.35)", color: "#06202E" },
           }}
         >
-          {refused ? "Turn on Poppin" : "Pop it"}
+          {ARC_EDITION ? (granted ? "Continue" : "Turn on Poppin") : refused ? "Turn on Poppin" : "Pop it"}
         </Button>
         {/* Under the button, small, one line: it names the account AND is
             the way out of it. The wrong-account case is real (a reinstall
@@ -212,14 +232,6 @@ export const ShowMeStep = () => {
         {me?.username && (
           <Typography sx={{ fontFamily: FONT, fontSize: 13, color: "rgba(255,255,255,.45)", mt: 2 }}>
             Logged in as <b style={{ color: "rgba(255,255,255,.8)" }}>@{me.username}</b>
-          </Typography>
-        )}
-        {/* The Arc edition opens a Circle wallet at sign-in; this is the one
-            moment it is worth naming, because it is the reader's money from
-            here on. */}
-        {ARC_EDITION && granted && (
-          <Typography sx={{ fontFamily: FONT, fontSize: 13, color: "rgba(255,255,255,.45)", mt: 0.75 }}>
-            Your dollar wallet is ready. Secured by Circle.
           </Typography>
         )}
         <QuietAction

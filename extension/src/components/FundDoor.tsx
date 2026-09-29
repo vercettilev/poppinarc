@@ -7,7 +7,7 @@ import { rememberTopUpIntentIfNone } from "~/helpers/topUpIntent"
 import { useCurrentUser } from "~/hooks/useCurrentUser"
 import { ACCENT, DIM } from "~/helpers/panelSurface"
 import { JUICE } from "~/theme/juice"
-import { CAP } from "~/config/edition"
+import { ARC_EDITION, CAP } from "~/config/edition"
 
 /**
  * Counting is never worth failing the door over — the same three lines every
@@ -243,7 +243,7 @@ export function FundDoor({ onConnected }: { onConnected?: () => void } = {}) {
         </Box>
         <Box sx={{ minWidth: 0, flex: 1 }}>
           <Typography sx={{ fontSize: 13.5, fontWeight: 700, lineHeight: 1.25 }}>
-            {external ? "Add USDC to your wallet" : "Deposit USDC"}
+            {external ? "Add USDC to your wallet" : ARC_EDITION ? "Add money" : "Deposit USDC"}
           </Typography>
           {/* Literal, because this is the sentence money moves on. The payoff
               first in the product's own word, then the fact that removes the
