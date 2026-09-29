@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { installSigninRelay, SIGNIN_POST_MESSAGE } from "./signinRelay"
+import { ARC_WALLET_SIGNIN_MESSAGE, installSigninRelay, SIGNIN_POST_MESSAGE } from "./signinRelay"
 
 /**
  * The channel that exists in every Chromium. Brave withholds chrome.runtime
@@ -91,5 +91,33 @@ describe("installSigninRelay", () => {
     teardowns.push(installSigninRelay("app.poppin.so"))
     post({ type: SIGNIN_POST_MESSAGE, token: "tok-once" })
     expect(sendMessage).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("the Arc edition's wallet page", () => {
+  const ARC = "arc-api-production-3d0a.up.railway.app"
+
+  it("forwards a wallet session from arc-api's own host", () => {
+    teardowns.push(installSigninRelay(ARC, ARC))
+    post({ type: ARC_WALLET_SIGNIN_MESSAGE, token: "arcw_body.sig" })
+    expect(sendMessage).toHaveBeenCalledWith({ action: "arc-wallet-signin", token: "arcw_body.sig" })
+  })
+
+  it("forwards nothing else from there, and nothing of this kind from anywhere else", () => {
+    const off = installSigninRelay(ARC, ARC)
+    post({ type: SIGNIN_POST_MESSAGE, token: "tok-google" }) // the poppin.so shape, on the wrong host
+    post({ type: ARC_WALLET_SIGNIN_MESSAGE, token: "eyJ.not.ours" }) // not a wallet session
+    expect(sendMessage).not.toHaveBeenCalled()
+    off()
+    delete (window as any).__poppinSigninRelay
+    teardowns.push(installSigninRelay("app.poppin.so", ARC))
+    post({ type: ARC_WALLET_SIGNIN_MESSAGE, token: "arcw_body.sig" })
+    expect(sendMessage).not.toHaveBeenCalled()
+  })
+
+  it("does not listen on arc-api's host at all in the store build", () => {
+    teardowns.push(installSigninRelay(ARC, null))
+    post({ type: ARC_WALLET_SIGNIN_MESSAGE, token: "arcw_body.sig" })
+    expect(sendMessage).not.toHaveBeenCalled()
   })
 })

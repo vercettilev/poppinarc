@@ -6,6 +6,8 @@ import { checkPermissions, requestPermissions } from "~/helpers/permissionHelper
 import { useCurrentUser } from "~/hooks/useCurrentUser"
 import { QuietAction, StepFrame } from "../StepFrame"
 import { ArcAddMoney } from "../ArcAddMoney"
+import { GhostMark } from "../GhostMark"
+import coolGif from "~/assets/poppin-thuglife.gif"
 import { switchAccount } from "~/helpers/switchAccount"
 import { useNavigate } from "react-router"
 
@@ -182,6 +184,8 @@ export const ShowMeStep = () => {
 
   return (
     <StepFrame
+      // The ghost puts its glasses on: you're in (Lev, 2026-09-29).
+      mark={ARC_EDITION && !refused ? <GhostMark src={coolGif} /> : undefined}
       title={
         ARC_EDITION
           ? refused
@@ -199,7 +203,7 @@ export const ShowMeStep = () => {
           : ARC_EDITION
             ? refused
               ? "Chrome asks once, so Poppin can appear under the posts you read."
-              : "Poppin appears under the posts you read."
+              : "Poppin shows up wherever you read: X, Reddit, the news."
             : refused
             ? "Without that, Poppin can't show you anything. Pages are matched to markets in the moment, with no name attached."
             : granted

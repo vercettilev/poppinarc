@@ -1,5 +1,6 @@
 import { ARC_EDITION } from "~/config/edition"
 import { PHANTOM_LOGO_URI } from "~/assets/phantomLogoDataUri"
+import { METAMASK_ICON_URI, RABBY_ICON_URI, RAINBOW_ICON_URI } from "~/assets/walletIcons"
 import { Alert, alpha, Box, Button, CircularProgress, SxProps, TextField, Theme } from "@mui/material"
 import { useEffect, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
@@ -67,6 +68,31 @@ const googleBtnSx: SxProps<Theme> = {
   "&:disabled": { backgroundColor: "rgba(255,255,255,0.5)", color: "rgba(0,0,0,0.4)" },
 }
 
+
+/** Three of the wallets Arc documents, overlapped like a stack of cards. */
+function WalletStack() {
+  return (
+    <Box component="span" aria-hidden="true" sx={{ display: "flex", mr: 0.5 }}>
+      {[METAMASK_ICON_URI, RABBY_ICON_URI, RAINBOW_ICON_URI].map((src, i) => (
+        <Box
+          key={src}
+          component="img"
+          src={src}
+          alt=""
+          sx={{
+            width: 22,
+            height: 22,
+            borderRadius: "6px",
+            ml: i ? "-6px" : 0,
+            display: "block",
+            backgroundColor: "#0B111C",
+            boxShadow: "0 0 0 2px #0B111C",
+          }}
+        />
+      ))}
+    </Box>
+  )
+}
 
 function GoogleGlyph() {
   return (
@@ -184,6 +210,8 @@ export const SignInStep = ({
   }
 
   const [socialBusy, setSocialBusy] = useState(false)
+  /** The Arc edition's wallet door is busy on its own, so Google's label never says "Signing in…" for it. */
+  const [walletBusy, setWalletBusy] = useState(false)
 
   /**
    * The routing decision after ANY auth method lands a session — OTP and
@@ -471,6 +499,39 @@ export const SignInStep = ({
       setSocialBusy(false)
     }
   }
+
+  /**
+   * THE ARC EDITION'S WALLET DOOR. A wallet puts its provider into web pages,
+   * not into this extension page, so the sign-in happens on arc-api's own
+   * page (/auth/wallet): it lists the wallets this browser has, the reader
+   * signs one message, and the session comes back through the relay as
+   * `arc-wallet-signin`. The background checks it with arc-api, keeps it and
+   * broadcasts EXTENSION_SIGNIN_COMPLETE, which the effect above already
+   * turns into afterAuthed(). Same order as the other doors: the grant for
+   * the relay's origin is asked first, with nothing awaited before it.
+   */
+  const handleArcWalletSignIn = async () => {
+    setWalletBusy(true)
+    setAlertMessage('')
+    track("pressed", "wallet")
+    try {
+      const api = String(process.env.NEXT_PUBLIC_API_URL ?? "")
+      const tab = await openAuthTab(`${api}/auth/wallet`, `${new URL(api).origin}/*`)
+      if (tab.id !== undefined) {
+        const tabId = tab.id
+        const onRemoved = (removedTabId: number) => {
+          if (removedTabId !== tabId) return
+          chrome.tabs.onRemoved.removeListener(onRemoved)
+          setWalletBusy(false)
+        }
+        chrome.tabs.onRemoved.addListener(onRemoved)
+      }
+    } catch {
+      track("failed", "wallet")
+      setAlertMessage('Could not open the wallet sign-in page.')
+      setWalletBusy(false)
+    }
+  }
   const handleApplyReferral = async () => {
     const code = referralCodeInput.trim()
     if (!code) {
@@ -540,7 +601,7 @@ export const SignInStep = ({
           // one calm line carries that, three concrete places rather than
           // three brand names. Folded into the headline it ran to four
           // lines and read as a wall.
-          subtitle={ARC_EDITION ? "A live price under the post. One tap to buy or sell." : ONBOARDING_V2 ? "Tokens and tokenized stocks. On X, Reddit, and everywhere else you scroll." : "One account to trade the internet."}
+          subtitle={ARC_EDITION ? "The whole internet, now with a Buy button." : ONBOARDING_V2 ? "Tokens and tokenized stocks. On X, Reddit, and everywhere else you scroll." : "One account to trade the internet."}
           // The chip itself, drawn as the product draws it, under a tweet
           // that never said a cashtag.
           hero={ONBOARDING_V2 ? <ChipDemo /> : undefined}
@@ -549,7 +610,7 @@ export const SignInStep = ({
             <>
               <Button
                 onClick={handleGoogleSignIn}
-                disabled={socialBusy}
+                disabled={socialBusy || walletBusy}
                 sx={googleBtnSx}
                 startIcon={<GoogleGlyph />}
               >
@@ -559,6 +620,24 @@ export const SignInStep = ({
                     button this whole screen is about. */}
                 {socialBusy ? "Signing in…" : "Continue with Google"}
               </Button>
+              {ARC_EDITION && (
+                <Button
+                  onClick={handleArcWalletSignIn}
+                  disabled={socialBusy || walletBusy}
+                  sx={{
+                    ...googleBtnSx,
+                    mt: 1.25,
+                    backgroundColor: "rgba(255,255,255,.05)",
+                    color: "rgba(255,255,255,.88)",
+                    boxShadow: "inset 0 0 0 1px rgba(255,255,255,.12)",
+                    "&:hover": { backgroundColor: "rgba(255,255,255,.09)" },
+                    "&:disabled": { backgroundColor: "rgba(255,255,255,.04)", color: "rgba(255,255,255,.4)" },
+                  }}
+                  startIcon={<WalletStack />}
+                >
+                  {walletBusy ? "Waiting for your wallet…" : "Continue with a wallet"}
+                </Button>
+              )}
               {PHANTOM_SIGNIN_ENABLED && (
                 <Button
                   onClick={handlePhantomSignIn}

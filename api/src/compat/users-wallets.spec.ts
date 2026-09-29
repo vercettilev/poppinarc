@@ -598,6 +598,9 @@ describe('compat user and wallet routes', () => {
       expect(tokens.map((t: any) => t.mint)).toEqual([USDC, MEME, ODD]);
       expect(tokens.filter((t: any) => t.symbol === 'USDC')).toHaveLength(1);
       expect(tokens[0]).toMatchObject({ mint: USDC, decimals: 6, amount: '12345678', uiAmount: 12.345678, usdValue: 12.345678, price: 1, isVerified: true });
+      // Circle's money by its own name, with Circle's icon from this service's icon route.
+      expect(tokens[0]).toMatchObject({ name: 'US Dollar', symbol: 'USDC' });
+      expect(tokens[0].logoURI).toMatch(new RegExp(`^http://127\\.0\\.0\\.1:\\d+/api/v1/embed/asset/icon\\?mint=${USDC}$`));
       expect(tokens[1]).toMatchObject({ symbol: 'MEME', decimals: 18, uiAmount: 5, usdValue: 2.5, priceChange24h: 12.5, logoURI: 'https://x/meme.png', isVerified: false });
       expect(tokens[2]).toMatchObject({ symbol: 'ODD', name: 'Odd Token', decimals: 2, uiAmount: 2.5, usdValue: null });
       // EURC held nothing: no row. The Solana deposit source never reached the balance read.

@@ -49,11 +49,11 @@ export const SIGNIN_RELAY_ORIGIN = "https://*.poppin.so/*"
  * Ask for what the relay needs. Best effort by construction: the return
  * value says what happened, and every caller is free to ignore it.
  */
-export async function requestSigninRelayAccess(): Promise<boolean> {
+export async function requestSigninRelayAccess(origin: string = SIGNIN_RELAY_ORIGIN): Promise<boolean> {
   try {
     const granted = await chrome.permissions?.request?.({
       permissions: ["scripting"],
-      origins: [SIGNIN_RELAY_ORIGIN],
+      origins: [origin],
     })
     return granted === true
   } catch {
@@ -70,7 +70,11 @@ export async function requestSigninRelayAccess(): Promise<boolean> {
  * Nothing here is caught on purpose: a `chrome.tabs.create` that fails is a
  * sign-in that did not start, and the caller says so on screen.
  */
-export async function openAuthTab(url: string): Promise<chrome.tabs.Tab> {
-  await requestSigninRelayAccess()
+/**
+ * `relayOrigin` is the page the relay has to run on: poppin.so for Google,
+ * arc-api's own host for the Arc edition's wallet page.
+ */
+export async function openAuthTab(url: string, relayOrigin: string = SIGNIN_RELAY_ORIGIN): Promise<chrome.tabs.Tab> {
+  await requestSigninRelayAccess(relayOrigin)
   return chrome.tabs.create({ url })
 }

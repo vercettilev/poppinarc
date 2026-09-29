@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ArcChain } from './arc/chain';
 import { FirebaseAuthGuard } from './auth/firebase-auth.guard';
+import { WalletAuthController } from './auth/wallet.controller';
+import { WalletSignin } from './auth/wallet-signin';
 import { CircleKit } from './circle/kit';
 import { CircleWallets } from './circle/wallets';
 import { AssetController } from './compat/asset.controller';
@@ -24,11 +26,12 @@ import { UsersService } from './users/users.service';
 @Module({
   // NoiseModule LAST: its quiet stubs must never shadow a real route.
   imports: [NoiseModule],
-  controllers: [HealthController, UsersController, WalletsController, ArcDepositsController, AssetController, FilesController],
+  controllers: [HealthController, UsersController, WalletsController, ArcDepositsController, AssetController, FilesController, WalletAuthController],
   providers: [
     { provide: APP_CONFIG, useFactory: () => loadConfig() },
     DbService,
     FilesStore,
+    WalletSignin,
     FirebaseAuthGuard,
     ArcChain,
     CircleKit,

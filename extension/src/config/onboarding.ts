@@ -70,16 +70,16 @@ export interface TryPlace {
   url: string
 }
 export const ARC_TRY_PLACES: readonly TryPlace[] = [
-  { id: "x", where: "On X", what: "Circle: Circle Wrapped Bitcoin is coming", url: ONBOARDING_X_URL },
+  { id: "x", where: "Start on X", what: "Circle: Circle Wrapped Bitcoin is coming", url: ONBOARDING_X_URL },
   {
     id: "news",
-    where: "In the news",
+    where: "Start with the news",
     what: "CNBC: Bitcoin hits highest level since January",
     url: "https://www.cnbc.com/2026/09/21/bitcoin-price-crypto-rally.html",
   },
   {
     id: "reddit",
-    where: "On Reddit",
+    where: "Start on Reddit",
     what: "r/personalfinance: IRS issues Bitcoin guidance",
     url: "https://www.reddit.com/r/personalfinance/comments/21d0rr/irs_issues_bitcoin_guidance_virtual_currency_is/",
   },

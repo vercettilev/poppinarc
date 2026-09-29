@@ -9,7 +9,9 @@ import {
   Query,
   ServiceUnavailableException,
   UseGuards,
+  Req,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { erc20Abi, formatUnits } from 'viem';
 import { APP_CONFIG, AppConfig } from '../config';
 import { AuthedUser, CurrentUser, FirebaseAuthGuard } from '../auth/firebase-auth.guard';
@@ -20,6 +22,7 @@ import { MARKET, type AssetView, type MarketPort } from '../market/market.types'
 import { ActionsStore, type ActionRow } from '../trade/actions';
 import { lower, type Address, type Leg } from '../trade/types';
 import { UsersService } from '../users/users.service';
+import { publicBase } from './files.controller';
 import { ensureUser, within } from './users.controller';
 
 /**
@@ -70,8 +73,13 @@ const CURSOR_MAX = 250;
 
 const HEX_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 
-/** Names read on chain from each contract's name(), 2026-09-28. The market's name wins when it has one. */
-const CIRCLE_NAMES: Record<string, string> = { USDC: 'USDC', EURC: 'EURC', cirBTC: 'Circle Wrapped Bitcoin' };
+/**
+ * Circle's assets by the money's own name, the way a bank or Revolut lists a
+ * balance (Lev, 2026-09-29: "USD diyebiliriz, Euro da"). The symbol beside it
+ * stays Circle's own (USDC, EURC, cirBTC), so the row says both what it is
+ * and exactly which token holds it.
+ */
+const CIRCLE_NAMES: Record<string, string> = { USDC: 'US Dollar', EURC: 'Euro', cirBTC: 'Bitcoin' };
 
 export interface TokenRow {
   mint: string;
@@ -371,14 +379,14 @@ export class WalletsController {
   }
 
   @Get('tokens')
-  tokens(@CurrentUser() user: AuthedUser): Promise<TokensResponse> {
+  tokens(@CurrentUser() user: AuthedUser, @Req() req: Request): Promise<TokensResponse> {
     const now = Date.now();
     const hit = this.tokensCache.get(user.uid);
     if (hit && now - hit.at < TOKENS_TTL_MS) return hit.value;
     if (this.tokensCache.size > 1000) {
       for (const [k, v] of this.tokensCache) if (now - v.at >= TOKENS_TTL_MS) this.tokensCache.delete(k);
     }
-    const value = this.readTokens(user.uid);
+    const value = this.readTokens(user.uid, publicBase(req));
     this.tokensCache.set(user.uid, { at: now, value });
     // A failed read is not remembered; the next ask tries again.
     value.catch(() => {
@@ -451,7 +459,7 @@ export class WalletsController {
    * that was already there as newly landed. Any other token whose read
    * failed is left out of this answer.
    */
-  private async readTokens(uid: string): Promise<TokensResponse> {
+  private async readTokens(uid: string, base: string): Promise<TokensResponse> {
     const w = await this.stored(uid);
     if (!w) return { publicKey: '', tokens: [] };
     const owner = lower(w.address);
@@ -492,9 +500,10 @@ export class WalletsController {
         uiAmount,
         slot: 0,
         isFrozen: false,
-        name: view?.token.name || (circle ? CIRCLE_NAMES[circle.symbol] : meta?.name) || 'Unknown',
+        name: (circle ? CIRCLE_NAMES[circle.symbol] : null) || view?.token.name || meta?.name || 'Unknown',
         symbol: circle?.symbol ?? (view?.token.symbol || meta?.symbol || '???'),
-        logoURI: view?.token.icon ?? null,
+        // Circle's own icons, from this service's icon route, which serves all three.
+        logoURI: circle ? `${base}/api/v1/embed/asset/icon?mint=${a}` : (view?.token.icon ?? null),
         price,
         usdValue: a === usdc ? uiAmount : price === null ? null : uiAmount * price,
         isVerified: Boolean(circle) || pinned.has(a),

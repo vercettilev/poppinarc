@@ -156,7 +156,8 @@ describe("the press of Sign in", () => {
       readFileSync(join(__dirname, "components/steps/SignInStep.tsx"), "utf8"),
     )
     expect(src).not.toMatch(/chrome\.tabs\.create/)
-    expect(src.match(/await openAuthTab\(/g)).toHaveLength(2)
+    // Google, Phantom, and the Arc edition's wallet page.
+    expect(src.match(/await openAuthTab\(/g)).toHaveLength(3)
   })
 
   it("spends the gesture before anything can await it away", () => {
@@ -166,7 +167,7 @@ describe("the press of Sign in", () => {
     const src = strip(
       readFileSync(join(__dirname, "components/steps/SignInStep.tsx"), "utf8"),
     )
-    for (const handler of ["handleGoogleSignIn", "handlePhantomSignIn"]) {
+    for (const handler of ["handleGoogleSignIn", "handlePhantomSignIn", "handleArcWalletSignIn"]) {
       const body = src.slice(src.indexOf(`const ${handler} =`))
       const upToOpen = body.slice(0, body.indexOf("await openAuthTab("))
       expect(upToOpen).not.toMatch(/\bawait\b/)

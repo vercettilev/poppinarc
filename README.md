@@ -15,6 +15,10 @@ Poppin puts a Buy button under the posts people are already reading. Someone wri
 
 Every other Arc token (launchpad tokens and the rest of the long tail) routes through the KyberSwap aggregator in `api/src/routers/kyber.router.ts`, executed from the same Circle wallet. Before any of them gets a Buy button it has to pass a live check in `api/src/market/`: a real sell route, a small round-trip loss and real USDC depth.
 
+## Sign-in
+
+Two doors, one account model. **Google** signs in through Firebase; arc-api verifies the ID token with the project id alone. **A wallet** (MetaMask, Rabby, Rainbow, Coinbase Wallet) signs an EIP-4361 message on arc-api's own page (`/api/v1/auth/wallet`, `api/src/auth/`); arc-api checks the signature and issues its own session, so it never holds a key that could sign in as anyone else. Either way the account gets a Circle wallet on Arc.
+
 ## Layout
 
 ```

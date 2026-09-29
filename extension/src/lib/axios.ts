@@ -1,6 +1,8 @@
 import axios from "axios"
 import { onAuthStateChanged } from "firebase/auth/web-extension"
 import { auth } from "~/lib/firebase"
+import { ARC_EDITION } from "~/config/edition"
+import { clearWalletSession, readWalletSession } from "~/arc/walletSession"
 
 /**
  * Wait for Firebase to finish restoring the session — ONCE, then never again.
@@ -121,6 +123,15 @@ backendApi.interceptors.request.use(async (config) => {
         console.info(`[poppin-spot] SW: getIdToken took ${Date.now() - t0}ms`)
       config.headers = config.headers ?? {}
       config.headers.Authorization = `Bearer ${idToken}`
+    } else if (ARC_EDITION) {
+      // No Firebase user: a wallet sign-in's own session, if there is one
+      // (arc/walletSession). arc-api's guard is the only reader of it.
+      const wallet = await readWalletSession()
+      if (wallet) {
+        config.headers = config.headers ?? {}
+        config.headers.Authorization = `Bearer ${wallet.token}`
+        ;(config as typeof config & { _walletAuth?: boolean })._walletAuth = true
+      }
     }
   } catch (err) {
     // Don't block the request if token fetch fails — the cookie
@@ -145,8 +156,11 @@ backendApi.interceptors.request.use(async (config) => {
 // ALSO 401s, the session is genuinely dead and the error should reach the user
 // as a sign-in problem, not loop.
 backendApi.interceptors.response.use(undefined, async (error) => {
-  const cfg = error?.config as (typeof error.config & { _authRetried?: boolean }) | undefined
+  const cfg = error?.config as (typeof error.config & { _authRetried?: boolean; _walletAuth?: boolean }) | undefined
   const status = error?.response?.status
+  // A wallet session arc-api no longer honours is not a session: forget it,
+  // so every surface reads "signed out" instead of failing one call at a time.
+  if (status === 401 && cfg?._walletAuth) void clearWalletSession()
   if (status === 401 && cfg && !cfg._authRetried && auth?.currentUser) {
     cfg._authRetried = true
     try {

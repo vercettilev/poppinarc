@@ -89,7 +89,9 @@ import {
   type PositionMark,
 } from "~/helpers/positionMoves"
 import { auth } from "~/lib/firebase"
-import { CAP } from "~/config/edition"
+import { ARC_EDITION, CAP } from "~/config/edition"
+import { clearWalletSession, decodeWalletToken, saveWalletSession } from "~/arc/walletSession"
+import { ARC_API_HOST } from "~/helpers/signinRelay"
 import { NATIVE_SYMBOL } from "~/arc/chain"
 
 /** Icon bytes by URL, worker-lifetime. null is cached too: a dead icon URL
@@ -873,6 +875,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // Only our own content scripts can send here, and the relay only installs
   // on poppin.so origins; the tab-URL check mirrors that anyway, because a
   // token handler should not take anyone's word for where it came from.
+  // THE ARC EDITION'S WALLET SIGN-IN: arc-api's own page (/auth/wallet)
+  // announces an arcw_ session, relayed from that exact host only.
+  if (request?.action === "arc-wallet-signin") {
+    let host = ""
+    try {
+      host = new URL(sender.tab?.url ?? "").hostname
+    } catch {
+      // no tab URL: not the relay's shape
+    }
+    if (!ARC_EDITION || !ARC_API_HOST || host !== ARC_API_HOST) {
+      sendResponse({ success: false, error: "wrong origin" })
+      return true
+    }
+    void handleArcWalletSignin(request.token, sendResponse, sender.tab?.id)
+    return true
+  }
+
   if (request?.action === "extension-signin") {
     const from = sender.tab?.url ?? ""
     let host = ""
@@ -3008,6 +3027,8 @@ function handleExtensionSignin(
     signInWithCustomToken(auth, token)
       .then((userCredential) => {
         deliverTelemetry("signin_completed", { source: "web_bridge" })
+        // One identity at a time: a Google session replaces a wallet one.
+        if (ARC_EDITION) void clearWalletSession()
         // A fresh session: push the local alerts up and check in now.
         alertsPushedThisLife = false
         void checkInAlerts()
@@ -3036,6 +3057,52 @@ function handleExtensionSignin(
   // The duplicate channel's arrival: the sign-in already happened, but the
   // tab that announced it still deserves to be tidied away.
   closeAuthTab()
+}
+
+/**
+ * A WALLET SESSION FROM arc-api's SIGN-IN PAGE.
+ *
+ * Checked before it is kept: the token is asked for /users/me against
+ * arc-api itself, so only a session arc-api signed and still honours is
+ * stored. Then Firebase is signed out, because lib/axios prefers a Firebase
+ * user and two identities in one browser is how a reader ends up trading
+ * from the account they did not mean. The same broadcast as a Google sign-in
+ * tells the welcome tab, and the page's tab is closed from here.
+ */
+async function handleArcWalletSignin(
+  token: unknown,
+  sendResponse: (r: unknown) => void,
+  senderTabId: number | undefined,
+): Promise<void> {
+  const session = decodeWalletToken(token)
+  if (!session) {
+    sendResponse({ success: false, error: "not a wallet session" })
+    return
+  }
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
+      headers: { Authorization: `Bearer ${session.token}`, extension: "true" },
+    })
+    if (!res.ok) {
+      sendResponse({ success: false, error: `arc-api answered ${res.status}` })
+      return
+    }
+  } catch (e) {
+    sendResponse({ success: false, error: (e as Error)?.message ?? "arc-api unreachable" })
+    return
+  }
+  if (auth?.currentUser) {
+    try {
+      await auth.signOut()
+    } catch {
+      // The wallet session below is what lib/axios will send either way.
+    }
+  }
+  await saveWalletSession(session.token)
+  deliverTelemetry("signin_completed", { source: "wallet" })
+  sendResponse({ success: true, uid: session.uid })
+  announceSignin()
+  if (senderTabId !== undefined) chrome.tabs.remove(senderTabId).catch(() => {})
 }
 
 /** Long enough for a custom-token sign-in on a bad connection, and no longer. */

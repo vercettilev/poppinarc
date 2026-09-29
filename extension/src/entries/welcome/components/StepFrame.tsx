@@ -43,9 +43,10 @@ export const StepFrame = ({
   actions,
   markInHero = false,
   badge,
+  mark,
 }: {
   title: string
-  subtitle?: string
+  subtitle?: ReactNode
   /** Floats at the viewport's top-right, outside the centered column so it
    *  can never tug the composition off-axis. */
   onBack?: () => void
@@ -69,6 +70,8 @@ export const StepFrame = ({
   markInHero?: boolean
   /** Between the mark and the title: a small confirmation, such as money that just arrived. */
   badge?: ReactNode
+  /** Drawn in place of the Poppin mark: the ghost putting on its glasses, or popping into view. */
+  mark?: ReactNode
 }) => (
   <Box
     sx={{
@@ -146,7 +149,9 @@ export const StepFrame = ({
         textAlign: "center",
       }}
     >
-      {!markInHero && (
+      {mark && <Box sx={{ mb: { xs: 3, sm: 3.5 } }}>{mark}</Box>}
+
+      {!markInHero && !mark && (
         <Box
           sx={{
             position: "relative",

@@ -59,6 +59,12 @@ export interface AppConfig {
   feeRecipient: `0x${string}` | null;
   rpcUrl: string;
   corsOrigins: string[];
+  /**
+   * Signs the sessions this service gives people who sign in with a wallet
+   * (auth/wallet-session.ts). Generated on the server and kept there; null
+   * turns wallet sign-in off and nothing else.
+   */
+  walletSessionSecret: string | null;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -105,7 +111,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean),
+    walletSessionSecret: walletSecret(env.ARC_WALLET_SESSION_SECRET),
   };
+}
+
+/** At least 32 characters, or wallet sign-in stays off: a short secret is a guessable one. */
+function walletSecret(raw: string | undefined): string | null {
+  const v = real(raw);
+  return v && v.length >= 32 ? v : null;
 }
 
 export const APP_CONFIG = Symbol('APP_CONFIG');

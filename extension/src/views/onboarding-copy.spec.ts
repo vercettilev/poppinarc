@@ -69,7 +69,7 @@ describe("the welcome headline is our angle, and the demo wears WIF's face", () 
     const step = src("entries/welcome/components/steps/SignInStep.tsx")
     expect(step).toMatch(/title=\{ARC_EDITION \? "Buy and sell what you read\." : "Trade from the tweet\."\}/)
     // No asset named and no brand: the line has to stay true as markets join Arc.
-    expect(step).toMatch(/ARC_EDITION \? "A live price under the post\. One tap to buy or sell\."/)
+    expect(step).toMatch(/ARC_EDITION \? "The whole internet, now with a Buy button\."/)
     expect(step).toMatch(/Tokens and tokenized stocks\. On X, Reddit, and everywhere else you scroll\./)
     expect(step).not.toMatch(/title="Buy tokens and tokenized stocks\."/)
   })

@@ -22,7 +22,7 @@ describe("the background worker asks nothing arc-api does not serve", () => {
   const bg = src("entries/background/main.ts")
 
   it("imports the capabilities", () => {
-    expect(bg).toMatch(/import \{ CAP \} from "~\/config\/edition"/)
+    expect(bg).toMatch(/import \{ (ARC_EDITION, )?CAP \} from "~\/config\/edition"/)
   })
 
   it.each([
