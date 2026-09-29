@@ -56,7 +56,7 @@ function pct(n: number, d: number): string {
 
 async function main() {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  const model = process.env.ARC_READER_MODEL ?? 'claude-sonnet-5-5';
+  const model = process.env.ARC_READER_MODEL ?? 'claude-haiku-4-5-20251001';
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not set');
   const outArg = process.argv.indexOf('--out');
   const out = outArg > 0 ? process.argv[outArg + 1] : null;

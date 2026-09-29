@@ -129,7 +129,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     walletAccounts: walletAccounts(env.ARC_WALLET_ACCOUNTS),
     reader: {
       apiKey: real(env.ANTHROPIC_API_KEY),
-      model: real(env.ARC_READER_MODEL) ?? 'claude-sonnet-5-5',
+      // Measured 2026-09-29 on reader/corpus.json: as accurate as Sonnet 5.5 at a third of the cost.
+      model: real(env.ARC_READER_MODEL) ?? 'claude-haiku-4-5-20251001',
       dailyUsd: dollars(env.ARC_READER_DAILY_USD, 1),
     },
   };

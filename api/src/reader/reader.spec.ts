@@ -123,7 +123,8 @@ describe('PageReader', () => {
       reason: 'The ECB held rates and the euro rose.',
     });
     expect(cache.size).toBe(1);
-    expect([...settings.values()]).toEqual(['3000']);
+    // Haiku 4.5, the default: 1000 in at $1/M and 100 out at $5/M.
+    expect([...settings.values()]).toEqual(['1500']);
 
     // Another reader, the same post: from the cache, no second call.
     const again = await reader.read('u2', [{ id: 'x9', text: 'ECB holds rates at 2%,   EUR/USD jumps' }], fetchFn);
