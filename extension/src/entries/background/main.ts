@@ -92,6 +92,7 @@ import { auth } from "~/lib/firebase"
 import { ARC_EDITION, CAP } from "~/config/edition"
 import { clearWalletSession, decodeWalletToken, saveWalletSession } from "~/arc/walletSession"
 import { ARC_API_HOST } from "~/helpers/signinRelay"
+import { ARC_OPEN_CONFIRM } from "~/arc/ownWalletTrade"
 import { NATIVE_SYMBOL } from "~/arc/chain"
 
 /** Icon bytes by URL, worker-lifetime. null is cached too: a dead icon URL
@@ -889,6 +890,30 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return true
     }
     void handleArcWalletSignin(request.token, sendResponse, sender.tab?.id)
+    return true
+  }
+
+  // THE ARC EDITION'S CONFIRM WINDOW (arc/ownWalletTrade.ts): the page where
+  // an account's own wallet approves a trade. Opened for the chip and the
+  // panel alike, and only ever arc-api's own confirm page.
+  if (request?.type === ARC_OPEN_CONFIRM) {
+    void openArcConfirm(request.url, request.id).then(sendResponse)
+    return true
+  }
+  // That page, relayed from arc-api's exact host, saying the wallet is done.
+  if (request?.action === "arc-trade-done") {
+    let host = ""
+    try {
+      host = new URL(sender.tab?.url ?? "").hostname
+    } catch {
+      // no tab URL: not the relay's shape
+    }
+    if (!ARC_EDITION || !ARC_API_HOST || host !== ARC_API_HOST || typeof request.id !== "string") {
+      sendResponse({ ok: false })
+      return true
+    }
+    arcTradeDone(request.id)
+    sendResponse({ ok: true })
     return true
   }
 
@@ -3069,6 +3094,58 @@ function handleExtensionSignin(
  * from the account they did not mean. The same broadcast as a Google sign-in
  * tells the welcome tab, and the page's tab is closed from here.
  */
+/** Confirm windows still open, by window id: which trade, and whether the wallet finished it. */
+const arcConfirmWindows = new Map<number, { id: string; done: boolean }>()
+const CONFIRM_DID_NOT_OPEN = "Your wallet's window did not open. Try again."
+
+async function openArcConfirm(url: unknown, id: unknown): Promise<{ ok: boolean; error?: string }> {
+  if (!ARC_EDITION || !ARC_API_HOST || typeof url !== "string" || typeof id !== "string") {
+    return { ok: false, error: CONFIRM_DID_NOT_OPEN }
+  }
+  let u: URL
+  try {
+    u = new URL(url)
+  } catch {
+    return { ok: false, error: CONFIRM_DID_NOT_OPEN }
+  }
+  if (u.protocol !== "https:" || u.hostname !== ARC_API_HOST || u.pathname !== "/api/v1/wallet/confirm") {
+    return { ok: false, error: CONFIRM_DID_NOT_OPEN }
+  }
+  try {
+    const w = await chrome.windows.create({ url, type: "popup", width: 440, height: 680, focused: true })
+    if (w?.id !== undefined) arcConfirmWindows.set(w.id, { id, done: false })
+    return { ok: true }
+  } catch {
+    // A browser without popup windows still has tabs.
+    try {
+      await chrome.tabs.create({ url })
+      return { ok: true }
+    } catch {
+      return { ok: false, error: CONFIRM_DID_NOT_OPEN }
+    }
+  }
+}
+
+function arcTradeDone(id: string): void {
+  for (const [windowId, entry] of arcConfirmWindows) {
+    if (entry.id !== id) continue
+    entry.done = true
+    // A moment on "Done." before the window goes.
+    setTimeout(() => void chrome.windows.remove(windowId).catch(() => {}), 1500)
+  }
+}
+
+// Closed before the wallet sent anything: the trade is cancelled on arc-api,
+// so the wait in arc/ownWalletTrade.ts ends at once instead of timing out.
+// A trade the wallet did send is not affected; arc-api only cancels a waiting one.
+chrome.windows.onRemoved.addListener((windowId) => {
+  const entry = arcConfirmWindows.get(windowId)
+  if (!entry) return
+  arcConfirmWindows.delete(windowId)
+  if (entry.done) return
+  void backendApi({ url: "/embed/asset/external/cancel", method: "POST", data: { id: entry.id } }).catch(() => {})
+})
+
 async function handleArcWalletSignin(
   token: unknown,
   sendResponse: (r: unknown) => void,

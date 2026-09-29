@@ -243,7 +243,7 @@ export function FundDoor({ onConnected }: { onConnected?: () => void } = {}) {
         </Box>
         <Box sx={{ minWidth: 0, flex: 1 }}>
           <Typography sx={{ fontSize: 13.5, fontWeight: 700, lineHeight: 1.25 }}>
-            {external ? "Add USDC to your wallet" : ARC_EDITION ? "Add money" : "Deposit USDC"}
+            {ARC_EDITION ? "Add money" : external ? "Add USDC to your wallet" : "Deposit USDC"}
           </Typography>
           {/* Literal, because this is the sentence money moves on. The payoff
               first in the product's own word, then the fact that removes the
@@ -253,7 +253,9 @@ export function FundDoor({ onConnected }: { onConnected?: () => void } = {}) {
               the trade signs in Phantom. */}
           <Typography sx={{ fontSize: 11.5, color: DIM, lineHeight: 1.4 }}>
             {external
-              ? "Every chip becomes a Buy button. Each trade signs in Phantom."
+              ? ARC_EDITION
+                ? "Every chip becomes a Buy button. You approve each trade in your wallet."
+                : "Every chip becomes a Buy button. Each trade signs in Phantom."
               : !CAP.feeLines
                 ? "Every chip becomes a Buy button."
                 : "Every chip becomes a Buy button. Network fees are on us."}

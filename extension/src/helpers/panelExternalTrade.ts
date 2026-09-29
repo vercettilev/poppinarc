@@ -1,3 +1,5 @@
+import { ARC_EDITION } from "~/config/edition"
+
 /**
  * A WALLET ACCOUNT'S TRADE, ASKED FROM THE SIDE PANEL. The panel is an
  * extension page and Phantom is not in it; the page in the active tab is
@@ -25,6 +27,8 @@ export interface PanelTradeResult {
 }
 
 export function tradeViaPage(args: PanelTradeArgs): Promise<PanelTradeResult> {
+  // The Arc edition needs no page: its confirm window is opened by the background.
+  if (ARC_EDITION) return import("~/arc/ownWalletTrade").then((m) => m.tradeWithOwnWallet(args))
   return new Promise((resolve, reject) => {
     try {
       chrome.runtime.sendMessage({ type: "EXTERNAL_TRADE", args }, (res) => {

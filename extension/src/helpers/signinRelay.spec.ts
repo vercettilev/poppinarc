@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { ARC_WALLET_SIGNIN_MESSAGE, installSigninRelay, SIGNIN_POST_MESSAGE } from "./signinRelay"
+import { ARC_TRADE_DONE_MESSAGE, ARC_WALLET_SIGNIN_MESSAGE, installSigninRelay, SIGNIN_POST_MESSAGE } from "./signinRelay"
 
 /**
  * The channel that exists in every Chromium. Brave withholds chrome.runtime
@@ -118,6 +118,21 @@ describe("the Arc edition's wallet page", () => {
   it("does not listen on arc-api's host at all in the store build", () => {
     teardowns.push(installSigninRelay(ARC, null))
     post({ type: ARC_WALLET_SIGNIN_MESSAGE, token: "arcw_body.sig" })
+    expect(sendMessage).not.toHaveBeenCalled()
+  })
+
+  it("tells the background a confirm window is finished, with the trade's id and nothing else", () => {
+    const id = "0c3e5f6a-1111-4222-8333-944455556666"
+    teardowns.push(installSigninRelay(ARC, ARC))
+    post({ type: ARC_TRADE_DONE_MESSAGE, id })
+    post({ type: ARC_TRADE_DONE_MESSAGE, id: "not-an-id" })
+    expect(sendMessage).toHaveBeenCalledTimes(1)
+    expect(sendMessage).toHaveBeenCalledWith({ action: "arc-trade-done", id })
+  })
+
+  it("hears no confirm window anywhere but arc-api", () => {
+    teardowns.push(installSigninRelay("app.poppin.so", ARC))
+    post({ type: ARC_TRADE_DONE_MESSAGE, id: "0c3e5f6a-1111-4222-8333-944455556666" })
     expect(sendMessage).not.toHaveBeenCalled()
   })
 })

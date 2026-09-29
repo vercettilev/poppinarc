@@ -100,7 +100,14 @@ const Receive: React.FC<ReceiveProps> = ({
      shows that address, the reader's own, and says so; the embedded
      wallet is never offered to an account that does not trade from it. */
   const { data: me, isError: meUnreadable } = useCurrentUser()
-  const external = me?.wallet_mode === "external" && !!me.external_address
+  /*
+   * In the Arc edition an account with its own wallet is added to like any
+   * other: arc-api answers its own address as the Arc address and reads its
+   * balance from the chain, so the screen needs no second branch. Only the
+   * store's Phantom accounts take the external path below.
+   */
+  const ownWallet = ARC_EDITION && me?.wallet_mode === "external" && !!me.external_address
+  const external = !ARC_EDITION && me?.wallet_mode === "external" && !!me.external_address
   /**
    * THE AMOUNT THIS SCREEN IS FOR. The chip's Deposit door and the panel's
    * Top up link know the shortfall; until now this screen did not, and
@@ -447,7 +454,9 @@ const Receive: React.FC<ReceiveProps> = ({
             ? `Your buy needs $${need} USDC in Phantom.${extUsdc !== null ? ` It holds $${extUsdc.toFixed(2)}.` : ""}`
             : "Your trades come from this wallet, your own. Send USDC to it from an exchange or another wallet."
           : ARC_EDITION
-            ? "It goes straight to your Poppin balance."
+            ? ownWallet
+              ? "It goes straight to your wallet."
+              : "It goes straight to your Poppin balance."
             : `${copyForChain.token} you send here becomes your trading balance.`}
         {/* True on every money path now — the terminal swap tops up from
             the gas tank like the spot rail always did. It is also the one

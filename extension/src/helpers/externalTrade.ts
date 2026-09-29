@@ -1,3 +1,4 @@
+import { ARC_EDITION } from "~/config/edition"
 import {
   prepareExternalCancel,
   prepareExternalOrder,
@@ -49,6 +50,12 @@ export interface ExternalTradeArgs {
 }
 
 export async function tradeWithPageWallet(args: ExternalTradeArgs) {
+  // The Arc edition's own-wallet trade is approved in arc-api's confirm
+  // window, which reaches every EVM wallet; the Phantom bridge below is Solana's.
+  if (ARC_EDITION) {
+    const { tradeWithOwnWallet } = await import("~/arc/ownWalletTrade")
+    return tradeWithOwnWallet(args)
+  }
   const { hasPageWallet, connectPageWallet, signWithPageWalletDetailed } = await import(
     "~/helpers/pageWalletBridge"
   )

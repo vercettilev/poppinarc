@@ -346,7 +346,8 @@ describe("a wallet account is sent to its own address, and signs nothing", () =>
   it("lands on the screen that already knew how to answer this", () => {
     const rcv = stripComments(read("views/receive.tsx"))
     // The destination existed all along; only the routing was wrong.
-    expect(rcv).toMatch(/const external = me\?\.wallet_mode === "external" && !!me\.external_address/)
+    // In the Arc edition an own wallet is added to like any account (arc-api answers its address).
+    expect(rcv).toMatch(/const external = !ARC_EDITION && me\?\.wallet_mode === "external" && !!me\.external_address/)
     /* The wallet account's own address is still what this screen shows —
        behind the gate that waits for the account to be READ at all, because
        an unread one used to fall through to the custodial wallet (see

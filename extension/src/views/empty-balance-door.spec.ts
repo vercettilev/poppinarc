@@ -163,11 +163,12 @@ describe("the funding door on a wallet account", () => {
     // Not a second source for one fact: the same key this card invalidates.
     expect(door).toMatch(/queryKey: \["current-user"\]/)
     const rcv = stripComments(read("views/receive.tsx"))
-    expect(rcv).toMatch(/const external = me\?\.wallet_mode === "external" && !!me\.external_address/)
+    expect(rcv).toMatch(/const external = !ARC_EDITION && me\?\.wallet_mode === "external" && !!me\.external_address/)
   })
 
   it("wears Lev's wording, and the room it opens wears the same one", () => {
-    expect(door).toMatch(/\{external \? "Add USDC to your wallet" : ARC_EDITION \? "Add money" : "Deposit USDC"\}/)
+    // The Arc edition says "Add money" for every account, its own-wallet ones included.
+    expect(door).toMatch(/\{ARC_EDITION \? "Add money" : external \? "Add USDC to your wallet" : "Deposit USDC"\}/)
     // The door and the room say one thing, as they do on the custodial side.
     expect(stripComments(read("views/receive.tsx"))).toMatch(
       /\{external \? "Add USDC to your wallet" : ARC_EDITION \? "Add money" : "Deposit USDC"\}/,
