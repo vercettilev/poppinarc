@@ -73,6 +73,12 @@ export interface AppConfig {
    * while Circle Wallets is not set up there.
    */
   walletAccounts: 'own' | 'circle';
+  /**
+   * The AI reader (reader/reader.ts): Claude reads the posts and headlines the
+   * chip's own rules could not place. Off without a key. `dailyUsd` is a hard
+   * ceiling: past it the reader stops asking until the next UTC day.
+   */
+  reader: { apiKey: string | null; model: string; dailyUsd: number };
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -121,7 +127,21 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       .filter(Boolean),
     walletSessionSecret: walletSecret(env.ARC_WALLET_SESSION_SECRET),
     walletAccounts: walletAccounts(env.ARC_WALLET_ACCOUNTS),
+    reader: {
+      apiKey: real(env.ANTHROPIC_API_KEY),
+      model: real(env.ARC_READER_MODEL) ?? 'claude-sonnet-5-5',
+      dailyUsd: dollars(env.ARC_READER_DAILY_USD, 1),
+    },
   };
+}
+
+/** A dollar amount between 0 and 100, or the fallback. */
+function dollars(value: string | undefined, fallback: number): number {
+  const v = real(value);
+  if (v === null) return fallback;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 0 || n > 100) throw new Error(`expected dollars between 0 and 100, got "${v}"`);
+  return n;
 }
 
 function walletAccounts(value: string | undefined): 'own' | 'circle' {

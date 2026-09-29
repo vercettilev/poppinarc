@@ -22,6 +22,7 @@ export class HealthController {
       chainId: this.config.network.chainId,
       db: this.db.ready,
       circle: Boolean(this.config.circle.apiKey && this.config.circle.entitySecret),
+      reader: Boolean(this.config.reader.apiKey),
       fee: this.config.feeBps > 0 && this.config.feeRecipient !== null,
     };
   }

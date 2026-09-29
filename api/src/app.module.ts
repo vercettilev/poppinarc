@@ -22,6 +22,8 @@ import { KyberRouter } from './routers/kyber.router';
 import { ActionsStore } from './trade/actions';
 import { OwnWalletTrades } from './trade/own-wallet';
 import { OwnWalletController } from './trade/own-wallet.controller';
+import { PageReader } from './reader/reader';
+import { ReaderController } from './reader/reader.controller';
 import { SWAP_ROUTERS, TradeService } from './trade/trade.service';
 import { UsersService } from './users/users.service';
 
@@ -37,6 +39,7 @@ import { UsersService } from './users/users.service';
     FilesController,
     WalletAuthController,
     OwnWalletController,
+    ReaderController,
   ],
   providers: [
     { provide: APP_CONFIG, useFactory: () => loadConfig() },
@@ -68,6 +71,7 @@ import { UsersService } from './users/users.service';
     { provide: MARKET, useExisting: MarketService },
     TradeService,
     OwnWalletTrades,
+    PageReader,
     DepositsService,
     { provide: DEPOSITS, useExisting: DepositsService },
   ],

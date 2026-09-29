@@ -99,4 +99,19 @@ export const MIGRATIONS: { version: number; name: string; sql: string }[] = [
       CREATE UNIQUE INDEX users_external_address ON users (lower(external_address)) WHERE external_address IS NOT NULL;
     `,
   },
+  {
+    version: 5,
+    name: 'what the reader already read',
+    sql: `
+      -- One row per text the AI reader answered (reader/reader.ts), keyed by a
+      -- hash of the model and the text, so a post seen by many readers is read
+      -- once. The text itself is not kept.
+      CREATE TABLE reader_cache (
+        key text PRIMARY KEY,
+        asset text,
+        reason text NOT NULL,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+    `,
+  },
 ];
