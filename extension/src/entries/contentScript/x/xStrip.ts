@@ -6958,6 +6958,16 @@ export function createXStrip(deps: XStripDeps): XStripController {
     const showIdle = () => {
       closeSheet()
       askWalOnce()
+      /*
+       * AN ASSET ON ANOTHER CHAIN (mint "remote:<key>", arc-api routes/remote.ts).
+       * It is reached from the reader's Arc balance over CCTP, and until those
+       * trades open the press shows the priced route in the sidebar instead of
+       * spending anything: "Preview", never a Buy that cannot happen.
+       */
+      if (row.mint.startsWith("remote:")) {
+        renderEnd(poppinMark(), btn("buy", "Preview", () => openCard("buy")))
+        return
+      }
       if (row.thin) {
         /**
          * A THIN ASSET IS STILL THE READER'S OWN WALLET. This branch used to

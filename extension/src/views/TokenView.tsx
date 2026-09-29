@@ -2,6 +2,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack"
 import { alpha, Box, Typography } from "@mui/material"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate, useParams, useLocation } from "react-router"
+import { RoutePreview } from "~/arc/RoutePreview"
 import { TradeSheet } from "~/components/TradeSheet"
 import { OpenOrders } from "~/components/OpenOrders"
 import { PriceAlerts } from "~/components/PriceAlerts"
@@ -71,6 +72,8 @@ const IMPACT_PROBE_USD = 100
 
 export default function TokenView() {
   const { mint = "" } = useParams()
+  /** On another chain, reached from Arc over CCTP (arc/RoutePreview.tsx). */
+  const isRemote = mint.startsWith("remote:")
   const navigate = useNavigate()
   const routed = useLocation()
   /**
@@ -522,7 +525,10 @@ export default function TokenView() {
             you hold, what the market looks like, what you already did
             here. Reading order, then acting order.
           */}
+          {/* An asset on another chain: the priced route from the Arc balance, in place of the doors. */}
+          {isRemote && <RoutePreview mint={asset.mint} />}
           {/* ── the doors that move money ── */}
+          {!isRemote && (
           <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
             {(["buy", "sell"] as const).map((side) => {
               const isOpen = sheetMode === side
@@ -547,6 +553,7 @@ export default function TokenView() {
               )
             })}
           </Box>
+          )}
           {sheetMode && copyFrom && (
             /* One line, four facts: who, which way, how much, how long ago.
                It is context and not an instruction — the amount below is
