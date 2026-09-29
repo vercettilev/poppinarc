@@ -6,7 +6,8 @@ import { APP_CONFIG, type AppConfig } from '../config';
 import { UsersService } from '../users/users.service';
 import { FirebaseAuthGuard } from './firebase-auth.guard';
 import { WalletAuthController } from './wallet.controller';
-import { signWalletSession, verifyWalletSession, walletUid, WALLET_SESSION_MS } from './wallet-session';
+import { CircleWallets } from '../circle/wallets';
+import { signLinkToken, signWalletSession, verifyLinkToken, verifyWalletSession, walletUid, WALLET_SESSION_MS } from './wallet-session';
 import { CHALLENGE_MS, WalletSignin, WalletSigninRejected } from './wallet-signin';
 
 /**
@@ -99,18 +100,39 @@ describe('the guard', () => {
   });
 });
 
+describe('link tokens', () => {
+  it('name the account for ten minutes, and are never a session', () => {
+    const t = signLinkToken('google-uid-1', SECRET, 1_000);
+    expect(t.startsWith('arcl_')).toBe(true);
+    expect(verifyLinkToken(t, SECRET, 2_000)).toBe('google-uid-1');
+    expect(verifyLinkToken(t, SECRET, 1_000 + 10 * 60 * 1000 + 1)).toBeNull();
+    expect(verifyLinkToken(t, 'y'.repeat(40), 2_000)).toBeNull();
+    expect(verifyWalletSession(t, SECRET, 2_000)).toBeNull();
+    expect(verifyLinkToken(signWalletSession(alice.address, SECRET, 1_000), SECRET, 2_000)).toBeNull();
+  });
+});
+
 describe('/auth/wallet over HTTP', () => {
   let app: INestApplication;
   let base: string;
   const ensured: string[] = [];
+  const connected: Array<[string, string]> = [];
+  let taken = false;
 
   beforeAll(async () => {
     const mod = await Test.createTestingModule({
       controllers: [WalletAuthController],
       providers: [
         WalletSignin,
-        { provide: APP_CONFIG, useValue: { walletSessionSecret: SECRET } },
-        { provide: UsersService, useValue: { ensure: async (u: { uid: string }) => (ensured.push(u.uid), { uid: u.uid }) } },
+        { provide: APP_CONFIG, useValue: { walletSessionSecret: SECRET, walletAccounts: 'own' } },
+        {
+          provide: UsersService,
+          useValue: {
+            ensure: async (u: { uid: string }) => (ensured.push(u.uid), { uid: u.uid }),
+            connectWallet: async (uid: string, address: string) => (taken ? false : (connected.push([uid, address]), true)),
+          },
+        },
+        { provide: CircleWallets, useValue: { forgetConnected: () => {} } },
       ],
     }).compile();
     app = mod.createNestApplication({ logger: false });
@@ -164,5 +186,39 @@ describe('/auth/wallet over HTTP', () => {
     const v = await post('/verify', { message, signature: await bob.signMessage({ message }) });
     expect(v.status).toBe(400);
     expect(v.body.message).toBe('The signature does not match this wallet.');
+  });
+
+  it('connects the wallet that signed to the account the link names, once', async () => {
+    const link = signLinkToken('google-uid-1', SECRET);
+    const c = await post('/challenge', { address: alice.address, chainId: 5042 });
+    const message = String(c.body.message);
+    const r = await post('/link', { message, signature: await alice.signMessage({ message }), link });
+    expect(r.status).toBe(200);
+    expect(r.body.address).toBe(alice.address.toLowerCase());
+    expect(connected).toContainEqual(['google-uid-1', alice.address.toLowerCase()]);
+
+    taken = true;
+    const c2 = await post('/challenge', { address: alice.address, chainId: 5042 });
+    const m2 = String(c2.body.message);
+    const again = await post('/link', { message: m2, signature: await alice.signMessage({ message: m2 }), link });
+    expect(again.status).toBe(409);
+    expect(again.body.message).toBe('That wallet is already connected to another Poppin account.');
+    taken = false;
+  });
+
+  it('refuses a link it did not sign, and asks for a session before making one', async () => {
+    const c = await post('/challenge', { address: alice.address, chainId: 5042 });
+    const message = String(c.body.message);
+    const r = await post('/link', { message, signature: await alice.signMessage({ message }), link: 'arcl_forged.sig' });
+    expect(r.status).toBe(400);
+    expect(r.body.message).toBe('This link expired. Start again from Poppin.');
+    const t = await post('/link-token', {});
+    expect(t.status).toBe(401);
+  });
+
+  it('opens the page in connect mode from its fragment', async () => {
+    const html = await (await fetch(base)).text();
+    expect(html).toContain('Connect your wallet');
+    expect(html).toContain('POPPIN_ARC_WALLET_LINKED');
   });
 });

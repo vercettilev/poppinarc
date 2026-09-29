@@ -56,6 +56,33 @@ export class UsersService {
       : null;
   }
 
+  /** The wallet this account connected, or null (migration 4). */
+  async connectedWallet(uid: string): Promise<string | null> {
+    const rows = await this.db.query<{ external_address: string | null }>(
+      'SELECT external_address FROM users WHERE uid = $1',
+      [uid],
+    );
+    return rows[0]?.external_address ?? null;
+  }
+
+  /**
+   * Connect a wallet the person proved they hold. False when another account
+   * already has it: one wallet trades for one account, or two ledgers would
+   * each claim the same balance.
+   */
+  async connectWallet(uid: string, address: string): Promise<boolean> {
+    try {
+      const rows = await this.db.query('UPDATE users SET external_address = $2 WHERE uid = $1 RETURNING uid', [
+        uid,
+        address.toLowerCase(),
+      ]);
+      return rows.length === 1;
+    } catch (e) {
+      if ((e as { code?: string })?.code === '23505') return false;
+      throw e;
+    }
+  }
+
   async byUsername(username: string): Promise<UserRow | null> {
     const rows = await this.db.query('SELECT uid FROM users WHERE lower(username) = lower($1)', [username]);
     return rows[0] ? this.get(rows[0].uid) : null;

@@ -14,7 +14,7 @@ import {
 import { createHash } from 'node:crypto';
 import { APP_CONFIG, AppConfig } from '../config';
 import { AuthedUser, CurrentUser, FirebaseAuthGuard } from '../auth/firebase-auth.guard';
-import { CircleWallets, ownWalletOf } from '../circle/wallets';
+import { CircleWallets } from '../circle/wallets';
 import { UserRow, UsersService } from '../users/users.service';
 import { lower } from '../trade/types';
 
@@ -358,7 +358,7 @@ export class UsersController {
     if (!row.username) row = await this.assignUsername(row, user);
     const address = await this.storedAddress(user.uid);
     if (!address) this.startWallet(user.uid);
-    return meView(row, address, ownWalletOf(this.config, user.uid)?.address ?? null);
+    return meView(row, address, await this.ownAddress(user.uid));
   }
 
   /**
@@ -402,6 +402,15 @@ export class UsersController {
       .finally(() => this.walletStarts.delete(uid));
   }
 
+  /** The account's own wallet (signed in with, or connected), when it trades from one. */
+  private async ownAddress(uid: string): Promise<string | null> {
+    try {
+      return (await this.wallets.ownWallet(uid))?.address ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   /** The stored Arc address only, never a Circle call. */
   private async storedAddress(uid: string): Promise<string | null> {
     try {
@@ -428,6 +437,6 @@ export class UsersController {
       await this.users.setProfile(uid, profile);
     }
     const fresh = (await this.users.get(uid)) ?? row;
-    return meView(fresh, await this.storedAddress(uid), ownWalletOf(this.config, uid)?.address ?? null);
+    return meView(fresh, await this.storedAddress(uid), await this.ownAddress(uid));
   }
 }

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Get,
   HttpCode,
@@ -10,14 +11,17 @@ import {
   Req,
   Res,
   ServiceUnavailableException,
+  UseGuards,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { CircleWallets } from '../circle/wallets';
 import { ensureUser } from '../compat/users.controller';
 import { publicBase } from '../compat/files.controller';
 import { APP_CONFIG, AppConfig } from '../config';
 import { UsersService } from '../users/users.service';
 import { walletSignInPage } from './wallet-page';
-import { signWalletSession, walletUid } from './wallet-session';
+import { AuthedUser, CurrentUser, FirebaseAuthGuard } from './firebase-auth.guard';
+import { signLinkToken, signWalletSession, verifyLinkToken, walletUid } from './wallet-session';
 import { WalletSignin, WalletSigninRejected } from './wallet-signin';
 
 /**
@@ -26,6 +30,13 @@ import { WalletSignin, WalletSigninRejected } from './wallet-signin';
  *   GET  /auth/wallet            the sign-in page (auth/wallet-page.ts)
  *   POST /auth/wallet/challenge  { address, chainId } -> { message }
  *   POST /auth/wallet/verify     { message, signature } -> { token, uid, address }
+ *   POST /auth/wallet/link-token (signed in)          -> { url }  the page, in connect mode
+ *   POST /auth/wallet/link       { message, signature, link } -> { address }
+ *
+ * CONNECTING A WALLET. On a deploy where accounts with a wallet trade from it
+ * (ARC_WALLET_ACCOUNTS=own), a Google account connects the wallet it holds by
+ * signing the same message on the same page; the account then trades from
+ * that wallet (circle/wallets.ts ownWallet). One wallet per account.
  *
  * Unauthenticated by nature: this is where a session comes from. The domain
  * written into the message is the host the page was reached at, so the wallet
@@ -39,6 +50,7 @@ export class WalletAuthController {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly signin: WalletSignin,
     private readonly users: UsersService,
+    private readonly wallets: CircleWallets,
   ) {}
 
   @Get()
@@ -89,6 +101,38 @@ export class WalletAuthController {
     // The account row exists before the extension's first /users/me, as it does for Google.
     await ensureUser(this.users, { uid, email: null, name: null, picture: null });
     return { token: signWalletSession(address, secret), uid, address };
+  }
+
+  @Post('link-token')
+  @HttpCode(200)
+  @UseGuards(FirebaseAuthGuard)
+  linkToken(@CurrentUser() user: AuthedUser, @Req() req: Request): { url: string } {
+    const secret = this.enabled();
+    if (this.config.walletAccounts !== 'own') throw new ConflictException('Connecting a wallet is not open here.');
+    if (user.uid.startsWith('evm:')) throw new ConflictException('This account already trades from its wallet.');
+    return { url: `${publicBase(req)}/api/v1/auth/wallet#link.${signLinkToken(user.uid, secret)}` };
+  }
+
+  @Post('link')
+  @HttpCode(200)
+  async link(@Body() body: unknown): Promise<{ address: string }> {
+    const secret = this.enabled();
+    const b = (body ?? {}) as { message?: unknown; signature?: unknown; link?: unknown };
+    const uid = verifyLinkToken(b.link, secret);
+    if (!uid) throw new BadRequestException('This link expired. Start again from Poppin.');
+    let address: string;
+    try {
+      address = await this.signin.verify({ message: b.message, signature: b.signature });
+    } catch (e) {
+      if (e instanceof WalletSigninRejected) throw new BadRequestException(e.message);
+      this.logger.warn(`wallet link failed: ${(e as Error)?.message ?? e}`);
+      throw new BadRequestException('The signature could not be checked. Try again.');
+    }
+    if (!(await this.users.connectWallet(uid, address))) {
+      throw new ConflictException('That wallet is already connected to another Poppin account.');
+    }
+    this.wallets.forgetConnected(uid);
+    return { address };
   }
 
   private enabled(): string {

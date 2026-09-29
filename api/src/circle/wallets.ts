@@ -50,16 +50,22 @@ export const OWN_WALLET_ID = 'own';
 export function ownWalletOf(config: Pick<AppConfig, 'walletAccounts' | 'network'>, uid: string): StoredWallet | null {
   if (config.walletAccounts !== 'own') return null;
   const m = /^evm:(0x[0-9a-f]{40})$/.exec(uid);
-  if (!m) return null;
+  return m ? ownStoredWallet(config, uid, m[1]!) : null;
+}
+
+function ownStoredWallet(config: Pick<AppConfig, 'network'>, uid: string, address: string): StoredWallet {
   return {
     uid,
     blockchain: config.network.walletsBlockchain,
     walletId: OWN_WALLET_ID,
-    address: m[1]!,
+    address: address.toLowerCase(),
     accountType: 'EOA',
     own: true,
   };
 }
+
+/** How long a connected wallet read from users is trusted before it is read again. */
+const CONNECTED_TTL_MS = 10_000;
 
 export interface ExecuteParams {
   walletId: string;
@@ -83,6 +89,7 @@ const SET_KEY = (network: string) => `circle_wallet_set:${network}`;
 export class CircleWallets {
   private readonly logger = new Logger('circle/wallets');
   private clientInstance: CircleDeveloperControlledWalletsClient | null = null;
+  private readonly connected = new Map<string, { at: number; address: string | null }>();
 
   constructor(
     @Inject(APP_CONFIG) private readonly config: AppConfig,
@@ -130,9 +137,38 @@ export class CircleWallets {
     return id;
   }
 
+  /**
+   * The account's own wallet: the address it signed in with (ownWalletOf), or
+   * the one a Google account connected by signing with it (users.external_address).
+   * Either way it is the account's Arc wallet from then on.
+   */
+  async ownWallet(uid: string): Promise<StoredWallet | null> {
+    const own = ownWalletOf(this.config, uid);
+    if (own) return own;
+    // Connecting is only open where people trade from their own wallets, and so is reading it.
+    if (this.config.walletAccounts !== 'own') return null;
+    const hit = this.connected.get(uid);
+    let address = hit && Date.now() - hit.at < CONNECTED_TTL_MS ? hit.address : undefined;
+    if (address === undefined) {
+      const rows = await this.db.query<{ external_address: string | null }>(
+        'SELECT external_address FROM users WHERE uid = $1',
+        [uid],
+      );
+      address = rows[0]?.external_address ?? null;
+      if (this.connected.size > 5_000) this.connected.clear();
+      this.connected.set(uid, { at: Date.now(), address });
+    }
+    return address ? ownStoredWallet(this.config, uid, address) : null;
+  }
+
+  /** A wallet was just connected: the next read must see it. */
+  forgetConnected(uid: string): void {
+    this.connected.delete(uid);
+  }
+
   async find(uid: string, blockchain: string): Promise<StoredWallet | null> {
     if (blockchain === this.config.network.walletsBlockchain) {
-      const own = ownWalletOf(this.config, uid);
+      const own = await this.ownWallet(uid);
       if (own) return own;
     }
     const rows = await this.db.query<{
@@ -158,7 +194,7 @@ export class CircleWallets {
    * one wallet.
    */
   async ensureArcWallet(uid: string): Promise<StoredWallet> {
-    const own = ownWalletOf(this.config, uid);
+    const own = await this.ownWallet(uid);
     if (own) return own;
     const chain = this.config.network.walletsBlockchain;
     const existing = await this.find(uid, chain);

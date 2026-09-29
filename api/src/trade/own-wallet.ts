@@ -13,7 +13,7 @@ import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { encodeFunctionData, erc20Abi, formatUnits, type Hash } from 'viem';
 import { ArcChain, gasUsdcRaw } from '../arc/chain';
 import { circleAssetByAddress } from '../arc/network';
-import { ownWalletOf } from '../circle/wallets';
+import { CircleWallets } from '../circle/wallets';
 import { APP_CONFIG, AppConfig } from '../config';
 import { MARKET, type MarketPort } from '../market/market.types';
 import { KyberRouter, receivedFromLogs } from '../routers/kyber.router';
@@ -133,6 +133,7 @@ export class OwnWalletTrades {
     private readonly kyber: KyberRouter,
     private readonly chain: ArcChain,
     private readonly actions: ActionsStore,
+    private readonly wallets: CircleWallets,
     @Optional() @Inject(MARKET) private readonly market: MarketPort | null = null,
   ) {}
 
@@ -142,7 +143,7 @@ export class OwnWalletTrades {
 
   async prepare(uid: string, body: unknown, base: string): Promise<PreparedOwnTrade> {
     this.sweep();
-    const own = ownWalletOf(this.config, uid);
+    const own = await this.wallets.ownWallet(uid);
     if (!own) throw new ConflictException(OWN_WALLET_COPY.notOwn);
     const address = lower(own.address);
     const b = (body ?? {}) as { side?: unknown; mint?: unknown; amountUsd?: unknown; amountRaw?: unknown; sourceUrl?: unknown };

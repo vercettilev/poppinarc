@@ -41,12 +41,24 @@ export interface DepositNetworkAddress {
   /** The sweep's floor on this network, raw 6-decimal USDC. The card promises the move only above it. */
   minUsdcRaw?: string;
 }
-export interface DepositAddresses {
+/** Where the deposits service says USDC can come from; Arc always. */
+export interface DepositPlaces {
   arc: { network: 'Arc'; address: string };
   others: DepositNetworkAddress[];
 }
+export interface DepositAddresses {
+  /** Absent only with connectWallet: there is no wallet to send to yet. */
+  arc?: { network: 'Arc'; address: string };
+  others: DepositNetworkAddress[];
+  /**
+   * The account has no wallet and this deploy cannot make one (no Circle
+   * Wallets, own-wallet trading on): the screen offers to connect the
+   * person's own wallet instead (auth/wallet.controller.ts, link).
+   */
+  connectWallet?: true;
+}
 export interface DepositsPort {
-  depositAddresses(uid: string): Promise<DepositAddresses>;
+  depositAddresses(uid: string): Promise<DepositPlaces>;
 }
 /**
  * A string token rather than a Symbol so the provider can be bound from a
@@ -633,6 +645,7 @@ export class ArcDepositsController {
   private readonly logger = new Logger('compat/deposits');
 
   constructor(
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly users: UsersService,
     private readonly wallets: CircleWallets,
     @Optional() @Inject(DEPOSITS) private readonly deposits: DepositsPort | null = null,
@@ -642,6 +655,9 @@ export class ArcDepositsController {
   async depositAddresses(@CurrentUser() user: AuthedUser): Promise<DepositAddresses> {
     await ensureUser(this.users, user);
     try {
+      if (this.config.walletAccounts === 'own' && !this.wallets.configured && !(await this.wallets.ownWallet(user.uid))) {
+        return { others: [], connectWallet: true };
+      }
       if (this.deposits) {
         const d = await this.deposits.depositAddresses(user.uid);
         return {

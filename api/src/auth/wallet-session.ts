@@ -57,3 +57,40 @@ export function verifyWalletSession(token: string, secret: string, now: number =
   if (typeof s.exp !== 'number' || typeof s.iat !== 'number' || s.exp <= now) return null;
   return { uid: s.uid, address: s.address, iat: s.iat, exp: s.exp };
 }
+
+/**
+ * A LINK TO CONNECT A WALLET to an account that is already signed in (a Google
+ * one), for ten minutes. The signed-in extension asks for it; the wallet page
+ * carries it in its fragment and hands it back with the wallet's signature,
+ * which is how the page, holding no session, says which account to connect.
+ * Its own prefix inside the MAC, so a session is never a link and a link is
+ * never a session.
+ */
+export const LINK_TOKEN_PREFIX = 'arcl_';
+export const LINK_TOKEN_MS = 10 * 60 * 1000;
+
+const linkMac = (body: string, secret: string): Buffer =>
+  createHmac('sha256', secret).update(`${LINK_TOKEN_PREFIX}${body}`).digest();
+
+export function signLinkToken(uid: string, secret: string, now: number = Date.now()): string {
+  const body = b64url(Buffer.from(JSON.stringify({ uid, exp: now + LINK_TOKEN_MS })));
+  return `${LINK_TOKEN_PREFIX}${body}.${b64url(linkMac(body, secret))}`;
+}
+
+/** The account the link was made for, or null for anything forged, altered or expired. */
+export function verifyLinkToken(token: unknown, secret: string, now: number = Date.now()): string | null {
+  if (typeof token !== 'string' || !token.startsWith(LINK_TOKEN_PREFIX)) return null;
+  const [body, sig, extra] = token.slice(LINK_TOKEN_PREFIX.length).split('.');
+  if (!body || !sig || extra !== undefined) return null;
+  const want = linkMac(body, secret);
+  const got = Buffer.from(sig, 'base64url');
+  if (got.length !== want.length || !timingSafeEqual(got, want)) return null;
+  let l: { uid?: unknown; exp?: unknown };
+  try {
+    l = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as { uid?: unknown; exp?: unknown };
+  } catch {
+    return null;
+  }
+  if (typeof l.uid !== 'string' || !l.uid || typeof l.exp !== 'number' || l.exp <= now) return null;
+  return l.uid;
+}

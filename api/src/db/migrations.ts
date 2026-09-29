@@ -88,4 +88,15 @@ export const MIGRATIONS: { version: number; name: string; sql: string }[] = [
       CREATE INDEX files_uid_created ON files (uid, created_at DESC);
     `,
   },
+  {
+    version: 4,
+    name: 'a wallet connected to an account',
+    sql: `
+      -- The person's own wallet, connected to a Google account by signing a
+      -- message with it (auth/wallet.controller.ts, link). The account then
+      -- trades from it (circle/wallets.ts). One wallet, one account.
+      ALTER TABLE users ADD COLUMN external_address text;
+      CREATE UNIQUE INDEX users_external_address ON users (lower(external_address)) WHERE external_address IS NOT NULL;
+    `,
+  },
 ];

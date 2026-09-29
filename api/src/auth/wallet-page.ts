@@ -68,6 +68,12 @@ export function walletSignInPage(): string {
 <script>
 (function () {
   var API = location.origin + "/api/v1/auth/wallet";
+  // Connect mode: a signed-in account connecting the wallet it will trade from.
+  var LINK = location.hash.indexOf("#link.") === 0 ? location.hash.slice(6) : "";
+  if (LINK) {
+    document.getElementById("title").textContent = "Connect your wallet";
+    document.getElementById("sub").textContent = "Choose the wallet you will trade from, then sign a short message. It costs nothing and moves no money.";
+  }
   var found = new Map();
   var busy = false;
   var list = document.getElementById("list");
@@ -171,11 +177,21 @@ export function walletSignInPage(): string {
         say("Sign the message in " + name + ".");
         return p.request({ method: "personal_sign", params: [hex(c.message), address] }).then(function (sig) { return { c: c, sig: sig }; });
       })
-      .then(function (x) { return post("/verify", { message: x.c.message, signature: x.sig }); })
+      .then(function (x) {
+        return LINK
+          ? post("/link", { message: x.c.message, signature: x.sig, link: LINK })
+          : post("/verify", { message: x.c.message, signature: x.sig });
+      })
       .then(function (r) {
-        window.postMessage({ type: "POPPIN_ARC_WALLET_SIGNIN", token: r.token }, location.origin);
-        document.getElementById("title").textContent = "You're in.";
-        document.getElementById("sub").textContent = "Back to Poppin in a moment. You can close this tab.";
+        if (LINK) {
+          window.postMessage({ type: "POPPIN_ARC_WALLET_LINKED", address: r.address }, location.origin);
+          document.getElementById("title").textContent = "Connected.";
+          document.getElementById("sub").textContent = "Your trades now come from this wallet. You can close this tab.";
+        } else {
+          window.postMessage({ type: "POPPIN_ARC_WALLET_SIGNIN", token: r.token }, location.origin);
+          document.getElementById("title").textContent = "You're in.";
+          document.getElementById("sub").textContent = "Back to Poppin in a moment. You can close this tab.";
+        }
         list.innerHTML = ""; document.getElementById("done").className = "done";
         say("");
       })

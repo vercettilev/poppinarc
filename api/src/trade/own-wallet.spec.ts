@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Logger } from '@nestjs/common';
 import { decodeFunctionData, erc20Abi } from 'viem';
 import type { ArcChain } from '../arc/chain';
-import { ownWalletOf } from '../circle/wallets';
+import { ownWalletOf, type CircleWallets } from '../circle/wallets';
 import { meView } from '../compat/users.controller';
 import { loadConfig } from '../config';
 import type { MarketPort } from '../market/market.types';
@@ -59,11 +59,14 @@ function setup(opts: { allowance?: bigint; usdc?: bigint; btc?: bigint; env?: Re
     get: jest.fn(async (id: string) => rows.get(id) ?? null),
   };
   const market = { gate: jest.fn(async () => ({ ok: true })), describe: jest.fn(async () => null) };
+  // The resolver's own rule for a wallet account; a connected wallet is the same kind of answer.
+  const wallets = { ownWallet: jest.fn(async (uid: string) => ownWalletOf(config, uid)) };
   const trades = new OwnWalletTrades(
     config,
     kyber as unknown as KyberRouter,
     chain as unknown as ArcChain,
     actions as unknown as ActionsStore,
+    wallets as unknown as CircleWallets,
     market as unknown as MarketPort,
   );
   trades.receiptWaitMs = 10;

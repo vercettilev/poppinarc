@@ -16,6 +16,7 @@ type Row = { uid: string; blockchain: string; wallet_id: string; address: string
 function fakeDb() {
   const wallets: Row[] = [];
   const settings = new Map<string, string>();
+  const connected = new Map<string, string>();
   const query = jest.fn(async (sql: string, p: unknown[] = []) => {
     if (sql.includes('FROM settings')) {
       const v = settings.get(String(p[0]));
@@ -24,6 +25,10 @@ function fakeDb() {
     if (sql.includes('INSERT INTO settings')) {
       settings.set(String(p[0]), String(p[1]));
       return [];
+    }
+    if (sql.includes('SELECT external_address FROM users')) {
+      const a = connected.get(String(p[0]));
+      return [{ external_address: a ?? null }];
     }
     if (sql.includes('FROM circle_wallets')) {
       return wallets.filter((w) => w.uid === p[0] && w.blockchain === p[1]);
@@ -36,13 +41,14 @@ function fakeDb() {
     }
     throw new Error(`unexpected SQL: ${sql}`);
   });
-  return { db: { query } as unknown as DbService, wallets, settings, query };
+  return { db: { query } as unknown as DbService, wallets, settings, connected, query };
 }
 
-function setup(accountType: 'EOA' | 'SCA') {
+function setup(accountType: 'EOA' | 'SCA', walletAccounts: 'own' | 'circle' = 'circle') {
   const config = {
     network: ARC_NETWORKS.testnet,
     circle: { apiKey: 'TEST_API_KEY:x:y', entitySecret: 'e'.repeat(64), accountType },
+    walletAccounts,
   } as unknown as AppConfig;
   const f = fakeDb();
   f.settings.set('circle_wallet_set:testnet', 'set-1');
@@ -88,6 +94,25 @@ describe('EVM deposit wallets', () => {
     const got = await w.ensureEvmDepositWallet('Xb3k9QmZt7VwP2rN8sLd4Hc1Ay0E', 'ETH-SEPOLIA');
     expect(client.deriveWallet).toHaveBeenCalled();
     expect(got.accountType).toBe('SCA');
+  });
+});
+
+describe('own wallets', () => {
+  it("are an account's Arc wallet where people trade from their own, and never make a Circle one", async () => {
+    const { w, client, f } = setup('EOA', 'own');
+    const signedIn = 'evm:0x78e07df0e361ddae634515334cc4a16acdcc1e36';
+    expect(await w.ensureArcWallet(signedIn)).toMatchObject({ address: '0x78e07df0e361ddae634515334cc4a16acdcc1e36', own: true });
+    f.connected.set('google-uid-1', '0xAbCdEf0123456789aBcDeF0123456789AbCdEf01');
+    expect(await w.find('google-uid-1', 'ARC-TESTNET')).toMatchObject({ address: '0xabcdef0123456789abcdef0123456789abcdef01', own: true });
+    await expect(w.ensureEvmDepositWallet(signedIn, 'BASE-SEPOLIA')).rejects.toThrow('no deposit wallets');
+    expect(client.createWallets).not.toHaveBeenCalled();
+  });
+
+  it('are not read at all where accounts get Circle wallets', async () => {
+    const { w, f } = setup('EOA', 'circle');
+    f.connected.set('google-uid-1', '0xabcdef0123456789abcdef0123456789abcdef01');
+    expect(await w.ownWallet('google-uid-1')).toBeNull();
+    expect(f.query.mock.calls.some(([sql]) => String(sql).includes('external_address'))).toBe(false);
   });
 });
 
