@@ -144,6 +144,8 @@ const DEFAULTS = {
 };
 
 const ADDRESS = /^0x[0-9a-f]{40}$/;
+/** How far under its quote a build may price before we refuse it; see build(). */
+const REPRICE_BPS = 50;
 const TX_HASH = /^0x[0-9a-fA-F]{64}$/;
 const NATIVE = new Set(['0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', '0x0000000000000000000000000000000000000000']);
 const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
@@ -1018,8 +1020,8 @@ export class KyberRouter implements SwapRouter {
    * approved, our amount and no native value. The calldata itself is decoded
    * and must spend exactly this amount of this token, pay the output token to
    * this wallet, carry no permit, pay fees to nobody but us, and hold a floor
-   * no lower than our slippage allows under the price we just saw. A build
-   * reprices by a wei or two, so the floor gets one basis point of grace.
+   * no lower than our slippage allows under the build's own price, which in
+   * turn may sit at most REPRICE_BPS under the quote we just saw.
    */
   private async build(p: Priced, t: Trade): Promise<{ callData: Address; minOut: bigint }> {
     const b = await this.call<KyberBuildData>(
@@ -1056,9 +1058,18 @@ export class KyberRouter implements SwapRouter {
     if (d.permit !== '0x') refuse('calldata carries a permit');
     const feeTo = p.feeReceiver;
     if (d.feeReceivers.some((r) => r !== feeTo)) refuse(`calldata pays a fee to ${d.feeReceivers.join(',')}`);
-    const floorBps = BigInt(Math.max(0, 10_000 - this.opts.slippageBps - 1));
-    if (d.minReturnAmount === 0n || d.minReturnAmount * 10_000n < p.amountOut * floorBps) {
-      refuse(`calldata floor ${d.minReturnAmount} is under ${p.amountOut} less slippage`);
+    // A build prices the route again, a block or two later. It may come back a
+    // little under the quote (measured 2026-09-29: a $1 cirBTC buy, 1202 sats
+    // quoted and 1200 built), but never more than REPRICE_BPS under it, and
+    // the floor is then held to the build's own price, less our slippage and
+    // one unit of rounding.
+    const builtOut = toRaw(b.amountOut ?? '') ?? p.amountOut;
+    if (builtOut * 10_000n < p.amountOut * BigInt(10_000 - REPRICE_BPS)) {
+      refuse(`build prices ${builtOut}, more than ${REPRICE_BPS} bps under the quote ${p.amountOut}`);
+    }
+    const floor = (builtOut * BigInt(10_000 - this.opts.slippageBps)) / 10_000n;
+    if (d.minReturnAmount === 0n || d.minReturnAmount + 1n < floor) {
+      refuse(`calldata floor ${d.minReturnAmount} is under ${builtOut} less slippage`);
     }
     return { callData: data as Address, minOut: d.minReturnAmount };
   }

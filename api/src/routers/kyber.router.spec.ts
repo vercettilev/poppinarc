@@ -414,6 +414,27 @@ describe('KyberRouter.prepareForWallet', () => {
     expect(e).toBeInstanceOf(UnprocessableEntityException);
   });
 
+  it('takes a build that reprices a small amount by a few units, and refuses one far under the quote', async () => {
+    const CIRBTC = '0x171a4217b86a807a64eb94757db6849fb4bdbaa0' as Address;
+    const small = (builtOut: bigint) => (body: any) =>
+      buildReply(body, { amountOut: builtOut.toString() }, { minReturnAmount: (builtOut * 9_900n) / 10_000n });
+    // Measured on Arc mainnet 2026-09-29: $1 of cirBTC quoted at 1202 sats and built at 1200.
+    const ok = setup();
+    mockKyber({ routes: (q) => routesReply(q, 1_202n), build: small(1_200n) });
+    ok.readContract.mockResolvedValue(0n);
+    const s = await ok.router.prepareForWallet({ tokenIn: USDC, tokenOut: CIRBTC, amountInRaw: 1_000_000n, walletAddress: WALLET, actionId: 'a' });
+    expect(s.minOut).toBe(1_188n);
+    jest.restoreAllMocks();
+
+    const far = setup();
+    mockKyber({ routes: (q) => routesReply(q, 1_202n), build: small(1_100n) });
+    far.readContract.mockResolvedValue(0n);
+    const e = await rejection(
+      far.router.prepareForWallet({ tokenIn: USDC, tokenOut: CIRBTC, amountInRaw: 1_000_000n, walletAddress: WALLET, actionId: 'b' }),
+    );
+    expect(e).toBeInstanceOf(UnprocessableEntityException);
+  });
+
   it('prepares nothing on testnet, where KyberSwap does not run', async () => {
     const { router } = setup({ ARC_NETWORK: 'testnet' });
     const e = await rejection(
