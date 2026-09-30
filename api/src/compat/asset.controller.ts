@@ -34,7 +34,7 @@ import {
 } from '../trade/trade.service';
 import type { Address } from '../trade/types';
 import { remoteAssetByTicker, remoteMint } from '../routes/remote';
-import { RemoteTokens, type RemoteListing } from '../routes/remote-tokens';
+import { REMOTE_STOCKS, RemoteTokens, type RemoteListing } from '../routes/remote-tokens';
 import { RouteQuotes } from '../routes/route-quotes';
 
 /**
@@ -170,9 +170,9 @@ export class AssetController {
     }
     // Circle's own assets, and a major's canonical Arc contract, are the asset itself: trade it here.
     if (arc && (isMajorTicker(key) || this.market.pinned().some((t) => t.address.toLowerCase() === arc))) return { mint: arc };
-    // Any other token, on a chain Arc reaches. A stock's ticker never goes looking there.
+    // Any other token, on a chain Arc reaches. A stock's ticker only finds a hand-kept tokenized share (REMOTE_STOCKS).
     let far: RemoteListing | null = null;
-    if (!stockShaped(key)) {
+    if (!stockShaped(key) || REMOTE_STOCKS[key]) {
       try {
         far = await this.tokens.byTicker(key);
       } catch (e) {

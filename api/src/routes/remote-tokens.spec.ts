@@ -24,7 +24,7 @@ const coin = (id: string, symbol: string, name: string, mcap: number, price = 0.
 });
 
 /** CoinGecko, DexScreener, Jupiter and Hyperliquid, answering the way they did on 2026-09-30. */
-function upstream(over: { markets?: unknown; limited?: number } = {}) {
+function upstream(over: { markets?: unknown; limited?: number; arbitrumLiquidity?: number } = {}) {
   let limited = over.limited ?? 0;
   return jest.fn(async (input: unknown, init?: RequestInit) => {
     const url = String(input);
@@ -66,7 +66,7 @@ function upstream(over: { markets?: unknown; limited?: number } = {}) {
       return json([{ baseToken: { address: '0x6982508145454Ce325dDbE47a25d4ec3d2311933' }, liquidity: { usd: 31_000_000 } }]);
     }
     if (url.includes('api.dexscreener.com/tokens/v1/arbitrum/')) {
-      return json([{ baseToken: { address: PEPE_ARB }, liquidity: { usd: 90_000 } }]);
+      return json([{ baseToken: { address: PEPE_ARB }, liquidity: { usd: over.arbitrumLiquidity ?? 90_000 } }]);
     }
     if (url.includes('lite-api.jup.ag/tokens/v2/search')) {
       const q = decodeURIComponent(url.split('query=')[1] ?? '');
@@ -120,15 +120,30 @@ describe('RemoteTokens', () => {
     expect(await t.assetOf('0x6982508145454ce325ddbe47a25d4ec3d2311933')).toBeUndefined();
   });
 
-  it("names a cashtag's largest coin, on the chain where its pools are deepest", async () => {
+  it("names a cashtag's largest coin, on a chain the reader can buy on when its pools there are deep enough", async () => {
     const t = setup();
     await t.refresh();
     const pepe = await t.byTicker('$pepe');
-    expect(pepe?.mint).toBe(`remote:ethereum:${PEPE_ETH}`);
-    expect(pepe?.asset).toMatchObject({ ticker: 'PEPE', name: 'Pepe', chain: 'ethereum', venue: 'kyber', decimals: 18 });
+    expect(pepe?.mint).toBe(`remote:arbitrum:${PEPE_ARB}`);
+    expect(pepe?.asset).toMatchObject({ ticker: 'PEPE', name: 'Pepe', chain: 'arbitrum', venue: 'kyber', decimals: 18 });
     expect(pepe?.mcapUsd).toBe(1.8e9);
     const wif = await t.byTicker('WIF');
     expect(wif?.asset).toMatchObject({ chain: 'solana', venue: 'jupiter', address: WIF, decimals: 6 });
+  });
+
+  it('keeps the deepest pool when the buyable chain holds too little', async () => {
+    const t = setup(upstream({ arbitrumLiquidity: 10_000 }));
+    await t.refresh();
+    expect((await t.byTicker('PEPE'))?.mint).toBe(`remote:ethereum:${PEPE_ETH}`);
+  });
+
+  it("answers a stock's ticker with its hand-kept tokenized share on Base, even before the snapshot", async () => {
+    const t = setup();
+    const nvda = await t.byTicker('$NVDA');
+    expect(nvda?.mint).toBe('remote:base:0xb20000000000000000000078ee7ce2fe4908108c');
+    expect(nvda?.asset).toMatchObject({ ticker: 'NVDA', name: 'NVIDIA', chain: 'base', venue: 'kyber', decimals: 18 });
+    await t.refresh();
+    expect((await t.assetOf('remote:base:0xB20000000000000000000078EE7CE2FE4908108C'))?.asset.ticker).toBe('NVDA');
   });
 
   it("uses Hyperliquid's book only for a coin that lives nowhere else Arc reaches", async () => {

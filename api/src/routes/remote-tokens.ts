@@ -123,6 +123,32 @@ const MARKET_TICKERS: ReadonlySet<string> = new Set([
   'TNX', 'US10Y', 'US02Y', 'WTI', 'BRENT', 'OIL', 'GOLD', 'XAU', 'XAG', 'SILVER', 'NATGAS',
 ]);
 
+/**
+ * TOKENIZED STOCKS, KEPT BY HAND. A stock's ticker never goes to the market
+ * snapshot: "$NVDA" is the company, and the coin CoinGecko files under that
+ * symbol could be anyone's. These are Coinbase's tokenized shares on Base,
+ * each read from CoinGecko's listing (nvidia-coinbase-tokenized-stock and
+ * its siblings) and each routed by KyberSwap at under a quarter percent
+ * for $10 on 2026-09-30. Base is where the reader can buy them from Arc.
+ */
+export const REMOTE_STOCKS: Readonly<Record<string, { name: string; address: string }>> = {
+  NVDA: { name: 'NVIDIA', address: '0xb20000000000000000000078ee7ce2fe4908108c' },
+  AAPL: { name: 'Apple', address: '0xb200000000000000000000c2e324d24d7eecd1fb' },
+  TSLA: { name: 'Tesla', address: '0xb2000000000000000000001e800a7f5189430cd0' },
+  MSFT: { name: 'Microsoft', address: '0xb200000000000000000000ab99cfa739e253872b' },
+  AMZN: { name: 'Amazon', address: '0xb200000000000000000000d9192b6b456483c2e8' },
+  GOOGL: { name: 'Alphabet', address: '0xb2000000000000000000002d0ba3164cc74f58b7' },
+  GOOG: { name: 'Alphabet', address: '0xb2000000000000000000002d0ba3164cc74f58b7' },
+  META: { name: 'Meta', address: '0xb2000000000000000000008bc8786b856e61707c' },
+  MSTR: { name: 'Strategy', address: '0xb2000000000000000000004884b426556b92883d' },
+  PLTR: { name: 'Palantir', address: '0xb2000000000000000000007d16372840df4dabbe' },
+  MU: { name: 'Micron', address: '0xb200000000000000000000fd2f87532b90095211' },
+  SNDK: { name: 'SanDisk', address: '0xb200000000000000000000397293cb8cda9a10c5' },
+};
+
+/** A pool this deep on a chain the reader can buy on beats a deeper one they cannot (PEPE: Arbitrum over Ethereum). */
+const TRADABLE_MIN_LIQUIDITY_USD = 25_000;
+
 /** A dollar stablecoin: USDC into USDT across two chains is not a trade anyone reads about. */
 function isDollar(c: Coin): boolean {
   return c.priceUsd !== null && Math.abs(c.priceUsd - 1) < 0.03 && /USD|DOLLAR/i.test(`${c.symbol} ${c.name}`);
@@ -285,6 +311,8 @@ export class RemoteTokens implements OnModuleInit, OnModuleDestroy {
     if (!/^[A-Z0-9]{2,10}$/.test(t) || MARKET_TICKERS.has(t)) return null;
     const hit = this.tickers.get(t);
     if (hit && Date.now() - hit.at < (hit.value ? TICKER_TTL_MS : MISS_TTL_MS)) return hit.value;
+    const stock = REMOTE_STOCKS[t];
+    if (stock) return this.stockListing(t);
     if (!this.ready) throw new RemoteTokensWarming('The token list is still loading.');
     const coin = this.bySymbol.get(t);
     const value = coin ? await this.fromCoin(coin) : await this.fromJupiter(t);
@@ -321,6 +349,10 @@ export class RemoteTokens implements OnModuleInit, OnModuleDestroy {
       const token = tokenId ? spot.token(tokenId) : null;
       return coin && token ? this.listing(coin, 'hyperliquid', token.book, token.szDecimals) : null;
     }
+    if (at.chain === 'base') {
+      const ticker = Object.keys(REMOTE_STOCKS).find((k) => REMOTE_STOCKS[k]!.address === at.address);
+      if (ticker) return this.stockListing(ticker);
+    }
     const coin = this.byId.get(this.idByKey.get(key) ?? '');
     if (coin) return this.listing(coin, at.chain, at.address, await this.decimalsOf(at.chain, at.address));
     return at.chain === 'solana' ? this.fromJupiter(at.address, at.address) : null;
@@ -351,6 +383,13 @@ export class RemoteTokens implements OnModuleInit, OnModuleDestroy {
     }
     const pick = reachable.length === 1 ? reachable[0]! : await this.deepest(reachable);
     return this.listing(coin, pick.chain, pick.address, await this.decimalsOf(pick.chain, pick.address));
+  }
+
+  /** A hand-kept tokenized stock on Base (REMOTE_STOCKS); no snapshot needed. */
+  private async stockListing(ticker: string): Promise<RemoteListing> {
+    const s = REMOTE_STOCKS[ticker]!;
+    const coin: Coin = { id: `stock:${ticker}`, symbol: ticker, name: s.name, image: null, priceUsd: null, mcapUsd: null };
+    return this.listing(coin, 'base', s.address, await this.decimalsOf('base', s.address));
   }
 
   /** Verified Solana tokens past the snapshot, by ticker, or by mint when `mint` is given. */
@@ -405,8 +444,11 @@ export class RemoteTokens implements OnModuleInit, OnModuleDestroy {
         return sum;
       }),
     );
-    let best = 0;
-    for (let i = 1; i < places.length; i++) if (depth[i]! > depth[best]!) best = i;
+    const tradable = (i: number) => (places[i]!.chain === 'base' || places[i]!.chain === 'arbitrum') && depth[i]! >= TRADABLE_MIN_LIQUIDITY_USD;
+    const pool = places.map((_, i) => i).filter(tradable);
+    const among = pool.length > 0 ? pool : places.map((_, i) => i);
+    let best = among[0]!;
+    for (const i of among) if (depth[i]! > depth[best]!) best = i;
     return places[best]!;
   }
 

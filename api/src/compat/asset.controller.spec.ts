@@ -237,11 +237,14 @@ describe('AssetController over HTTP', () => {
     expect(tokens.byTicker).not.toHaveBeenCalled();
   });
 
-  it("a stock's ticker never goes looking on other chains", async () => {
+  it("a stock's ticker only finds a hand-kept tokenized share, never a coin that took its name", async () => {
     tokens.byTicker.mockClear();
     market.resolveTicker.mockResolvedValueOnce(null);
-    expect((await post('by-ticker', { ticker: 'NVDA' })).body).toEqual({ mint: null });
+    expect((await post('by-ticker', { ticker: 'COIN' })).body).toEqual({ mint: null });
     expect(tokens.byTicker).not.toHaveBeenCalled();
+    market.resolveTicker.mockResolvedValueOnce(null);
+    await post('by-ticker', { ticker: 'NVDA' });
+    expect(tokens.byTicker).toHaveBeenCalledWith('NVDA');
   });
 
   it('a lookup still loading is a 503 only when nothing else could answer', async () => {
