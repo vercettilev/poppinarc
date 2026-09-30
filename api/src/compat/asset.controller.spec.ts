@@ -11,6 +11,7 @@ import { TRADE_ERRORS, type Address, type Quote } from '../trade/types';
 import { RouteQuotes } from '../routes/route-quotes';
 import { remoteAssetOf } from '../routes/remote';
 import { RemoteTokens, RemoteTokensWarming, type RemoteListing } from '../routes/remote-tokens';
+import { FarTrades } from '../far/far-trades';
 import { AssetController, toSeriesWire } from './asset.controller';
 
 const USDC = '0x3600000000000000000000000000000000000000' as Address;
@@ -132,6 +133,12 @@ describe('AssetController over HTTP', () => {
     }),
     icon: jest.fn(async (): Promise<{ contentType: string; bytes: Buffer } | null> => null),
   };
+  // Trades on Base and Arbitrum: the one hash below is a far trade that settled there.
+  const FAR_TX = `0x${'e'.repeat(64)}`;
+  const far = {
+    settled: jest.fn((h: unknown) => (h === FAR_TX ? { status: 'confirmed' as const } : null)),
+    balance: jest.fn(async () => ({ uiAmount: 880, raw: '880000000000000000000', decimals: 18 })),
+  };
   const wallets = {
     find: jest.fn(async (uid: string) =>
       uid === 'nobody' ? null : { uid, blockchain: 'ARC-TESTNET', walletId: 'w-1', address: WALLET, accountType: 'SCA' },
@@ -152,6 +159,7 @@ describe('AssetController over HTTP', () => {
         { provide: CircleWallets, useValue: wallets },
         { provide: RouteQuotes, useValue: routes },
         { provide: RemoteTokens, useValue: tokens },
+        { provide: FarTrades, useValue: far },
       ],
     })
       .overrideGuard(FirebaseAuthGuard)
@@ -275,6 +283,12 @@ describe('AssetController over HTTP', () => {
     const ok = await fetch(`${base}/icon?mint=${PEPE_MINT}`);
     expect(ok.status).toBe(200);
     expect(ok.headers.get('content-type')).toBe('image/png');
+  });
+
+  it("confirms a trade that settled on Base from the far trades, and reads a remote balance from the account", async () => {
+    expect((await post('confirm', { signature: FAR_TX })).body).toEqual({ status: 'confirmed' });
+    expect((await post('balance', { mint: PEPE_MINT }, 'u1')).body).toEqual({ uiAmount: 880, raw: '880000000000000000000', decimals: 18 });
+    expect(far.balance).toHaveBeenCalledWith('u1', PEPE_MINT);
   });
 
   it('by-mint answers the full MatchedAsset shape', async () => {

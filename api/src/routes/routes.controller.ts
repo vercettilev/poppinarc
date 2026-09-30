@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, Logger, NotFoundException, Optional, Post, ServiceUnavailableException } from '@nestjs/common';
+import { Body, Controller, Inject, HttpCode, Logger, NotFoundException, Optional, Post, ServiceUnavailableException } from '@nestjs/common';
 import { FarTrades } from '../far/far-trades';
 import { remoteAssetByTicker } from './remote';
 import { RemoteTokens } from './remote-tokens';
@@ -17,7 +17,7 @@ export class RoutesController {
   constructor(
     private readonly routes: RouteQuotes,
     private readonly tokens: RemoteTokens,
-    @Optional() private readonly far: FarTrades | null = null,
+    @Optional() @Inject(FarTrades) private readonly far: FarTrades | null = null,
   ) {}
 
   @Post('route')

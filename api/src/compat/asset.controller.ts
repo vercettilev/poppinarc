@@ -129,7 +129,7 @@ export class AssetController {
     @Inject(MARKET) private readonly market: MarketPort,
     private readonly routes: RouteQuotes,
     private readonly tokens: RemoteTokens,
-    @Optional() private readonly far: FarTrades | null = null,
+    @Optional() @Inject(FarTrades) private readonly far: FarTrades | null = null,
   ) {}
 
   // ─── discovery ────────────────────────────────────────────────────────────
