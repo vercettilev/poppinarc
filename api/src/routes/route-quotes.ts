@@ -5,13 +5,16 @@ import { ARC_CCTP_DOMAIN, CHAINS, type RemoteAsset } from './remote';
  * THE ROUTE FROM A READER'S ARC BALANCE TO AN ASSET ON ANOTHER CHAIN, PRICED.
  *
  * Two legs, each priced by whoever runs it:
- *   1. Arc to the asset's chain over CCTP. The fee is Circle's own answer for
- *      that pair of domains (iris-api /v2/burn/USDC/fees), read every ten
- *      minutes. Measured 2026-09-29: 0 from Arc to Solana, Base, Ethereum
- *      and HyperEVM.
- *   2. USDC to the asset on its home venue: Jupiter's quote on Solana,
- *      KyberSwap's route on Base and Ethereum (with the network fee it
- *      estimates), Hyperliquid's mid price for HYPE.
+ *   1. Arc to the asset's chain over CCTP, delivered there by Circle's
+ *      Forwarding Service so the reader needs no gas on that chain to receive
+ *      it. Both fees are Circle's own answer for that pair of domains
+ *      (iris-api /v2/burn/USDC/fees?forward=true), read every ten minutes.
+ *      Measured 2026-09-30: CCTP 0 everywhere from Arc; forwarding about
+ *      $0.06 to Base, $0.08 to Arbitrum, $0.14 to Solana, $0.25 into a
+ *      Hyperliquid account, $0.8-1.5 to Ethereum.
+ *   2. What arrives, swapped on the asset's home venue: Jupiter's quote on
+ *      Solana, KyberSwap's route on Base, Ethereum and Arbitrum (with the
+ *      network fee it estimates), the mid of Hyperliquid's own book.
  *
  * A preview is kept fifteen seconds per asset and amount, so a room that
  * several people open at once asks each venue once.
@@ -34,10 +37,12 @@ export interface RoutePreview {
   outUsd: number | null;
   priceUsd: number;
   cctpFeeUsd: number;
+  /** Circle's Forwarding Service, which delivers the USDC on the far chain. */
+  forwardFeeUsd: number;
   /** The destination's own network fee for the swap, when the venue estimates one. */
   networkFeeUsd: number | null;
   priceImpactPct: number | null;
-  /** False until trades on other chains open (Circle Wallets on mainnet). */
+  /** False until trades on other chains open. */
   available: false;
   note: string;
   quotedAt: string;
@@ -51,11 +56,16 @@ const SOLANA_FEE_USD = 0.002;
 
 type Fetch = typeof fetch;
 
+interface BridgeFees {
+  bps: number;
+  forwardUsd: number;
+}
+
 @Injectable()
 export class RouteQuotes {
   private readonly logger = new Logger('routes');
   private readonly previews = new Map<string, { at: number; value: Promise<RoutePreview> }>();
-  private readonly fees = new Map<number, { at: number; bps: number }>();
+  private readonly fees = new Map<string, { at: number; value: BridgeFees }>();
   fetchFn: Fetch = (...a) => fetch(...a);
 
   preview(asset: RemoteAsset, amountUsd: number): Promise<RoutePreview> {
@@ -79,9 +89,16 @@ export class RouteQuotes {
 
   private async build(asset: RemoteAsset, amountUsd: number): Promise<RoutePreview> {
     const chain = CHAINS[asset.chain];
-    const [bps, swap] = await Promise.all([this.cctpFeeBps(chain.cctpDomain), this.swap(asset, amountUsd)]);
-    const cctpFeeUsd = (amountUsd * bps) / 10_000;
+    const fees = await this.bridgeFees(chain.cctpDomain, asset.chain === 'hyperliquid');
+    const cctpFeeUsd = (amountUsd * fees.bps) / 10_000;
+    // The forwarding fee comes out of the USDC that lands, so the swap spends what is left.
+    const arrives = Math.floor((amountUsd - cctpFeeUsd - fees.forwardUsd) * 1e6) / 1e6;
+    if (!(arrives >= 0.5)) {
+      throw new UnprocessableEntityException(`Circle's fees to ${chain.label} are about $${(cctpFeeUsd + fees.forwardUsd).toFixed(2)}. Pick a larger amount.`);
+    }
+    const swap = await this.swap(asset, arrives);
     if (!(swap.outAmount > 0)) throw new UnprocessableEntityException('This route cannot be priced right now.');
+    const into = asset.chain === 'hyperliquid' ? 'into your Hyperliquid account' : `on ${chain.label}`;
     return {
       asset: { key: asset.key, ticker: asset.ticker, name: asset.name, chain: chain.label },
       amountUsd,
@@ -89,8 +106,8 @@ export class RouteQuotes {
         {
           kind: 'bridge',
           label: `Arc to ${chain.label}, over CCTP`,
-          detail: `Circle burns your USDC on Arc and mints the same USDC on ${chain.label}.`,
-          feeUsd: cctpFeeUsd,
+          detail: `Circle burns your USDC on Arc and mints it ${into}, delivered by its Forwarding Service.`,
+          feeUsd: cctpFeeUsd + fees.forwardUsd,
         },
         {
           kind: 'swap',
@@ -101,28 +118,35 @@ export class RouteQuotes {
       ],
       outAmount: swap.outAmount,
       outUsd: swap.outUsd,
-      priceUsd: (amountUsd - cctpFeeUsd) / swap.outAmount,
+      priceUsd: arrives / swap.outAmount,
       cctpFeeUsd,
+      forwardFeeUsd: fees.forwardUsd,
       networkFeeUsd: swap.networkFeeUsd,
       priceImpactPct: swap.priceImpactPct,
       available: false,
-      note: `Buying on ${chain.label} from your Arc balance opens with Circle Wallets. The route and every number here are live.`,
+      note: `Buying on ${chain.label} from your Arc balance comes next. The route and every number here are live.`,
       quotedAt: new Date().toISOString(),
     };
   }
 
-  private async cctpFeeBps(domain: number): Promise<number> {
-    const hit = this.fees.get(domain);
-    if (hit && Date.now() - hit.at < FEE_TTL_MS) return hit.bps;
-    const rows = await this.json<Array<{ finalityThreshold?: number; minimumFee?: number }>>(
-      `https://iris-api.circle.com/v2/burn/USDC/fees/${ARC_CCTP_DOMAIN}/${domain}`,
+  /** CCTP's own fee in basis points, and the Forwarding Service's in dollars (Circle quotes it in USDC units). */
+  private async bridgeFees(domain: number, hyperCore: boolean): Promise<BridgeFees> {
+    const key = `${domain}:${hyperCore}`;
+    const hit = this.fees.get(key);
+    if (hit && Date.now() - hit.at < FEE_TTL_MS) return hit.value;
+    const rows = await this.json<Array<{ finalityThreshold?: number; minimumFee?: number; forwardFee?: { med?: number } }>>(
+      `https://iris-api.circle.com/v2/burn/USDC/fees/${ARC_CCTP_DOMAIN}/${domain}?forward=true${hyperCore ? '&hyperCoreDeposit=true' : ''}`,
     );
     // The fast lane (threshold 1000) when Circle offers it, the standard one otherwise.
     const fast = rows.find((r) => r.finalityThreshold === 1000) ?? rows[0];
     const bps = Number(fast?.minimumFee ?? NaN);
-    if (!Number.isFinite(bps) || bps < 0) throw new UnprocessableEntityException('This route cannot be priced right now.');
-    this.fees.set(domain, { at: Date.now(), bps });
-    return bps;
+    const forwardUsd = Number(fast?.forwardFee?.med ?? 0) / 1e6;
+    if (!Number.isFinite(bps) || bps < 0 || !Number.isFinite(forwardUsd) || forwardUsd < 0) {
+      throw new UnprocessableEntityException('This route cannot be priced right now.');
+    }
+    const value = { bps, forwardUsd };
+    this.fees.set(key, { at: Date.now(), value });
+    return value;
   }
 
   private async swap(
@@ -146,7 +170,7 @@ export class RouteQuotes {
       };
     }
     if (asset.venue === 'kyber') {
-      const slug = asset.chain === 'base' ? 'base' : 'ethereum';
+      const slug = asset.chain === 'base' ? 'base' : asset.chain === 'arbitrum' ? 'arbitrum' : 'ethereum';
       const r = await this.json<{ code?: number; data?: { routeSummary?: { amountOut?: string; amountOutUsd?: string; gasUsd?: string; route?: Array<Array<{ exchange?: string }>> } } }>(
         `https://aggregator-api.kyberswap.com/${slug}/api/v1/routes?tokenIn=${chain.usdc}&tokenOut=${asset.address}&amountIn=${raw}`,
         { 'x-client-id': 'poppin-arc' },

@@ -24,6 +24,7 @@ import { OwnWalletTrades } from './trade/own-wallet';
 import { OwnWalletController } from './trade/own-wallet.controller';
 import { PageReader } from './reader/reader';
 import { ReaderController } from './reader/reader.controller';
+import { RemoteTokens } from './routes/remote-tokens';
 import { RouteQuotes } from './routes/route-quotes';
 import { RoutesController } from './routes/routes.controller';
 import { SWAP_ROUTERS, TradeService } from './trade/trade.service';
@@ -76,6 +77,7 @@ import { UsersService } from './users/users.service';
     OwnWalletTrades,
     PageReader,
     RouteQuotes,
+    RemoteTokens,
     DepositsService,
     { provide: DEPOSITS, useExisting: DepositsService },
   ],

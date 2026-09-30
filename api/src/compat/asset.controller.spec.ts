@@ -9,6 +9,8 @@ import { ActionsStore } from '../trade/actions';
 import { SWAP_ROUTERS, TradeService } from '../trade/trade.service';
 import { TRADE_ERRORS, type Address, type Quote } from '../trade/types';
 import { RouteQuotes } from '../routes/route-quotes';
+import { remoteAssetOf } from '../routes/remote';
+import { RemoteTokens, RemoteTokensWarming, type RemoteListing } from '../routes/remote-tokens';
 import { AssetController, toSeriesWire } from './asset.controller';
 
 const USDC = '0x3600000000000000000000000000000000000000' as Address;
@@ -19,6 +21,19 @@ const WALLET = '0xabcdef0000000000000000000000000000000009';
 const HASH = `0x${'c'.repeat(64)}`;
 const TRANSFER = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 const pad = (a: string) => `0x${a.slice(2).padStart(64, '0')}`;
+const PEPE_MINT = 'remote:ethereum:0x6982508145454ce325ddbe47a25d4ec3d2311933';
+
+function farListing(ticker: string, mcapUsd: number, mint = PEPE_MINT): RemoteListing {
+  const key = mint.slice('remote:'.length);
+  const [chain, address] = [key.slice(0, key.indexOf(':')), key.slice(key.indexOf(':') + 1)];
+  return {
+    asset: { key, ticker, name: ticker === 'PEPE' ? 'Pepe' : ticker, chain: chain as 'ethereum', venue: 'kyber', address, decimals: 18 },
+    mint,
+    icon: 'https://coin-images.coingecko.com/coins/images/29850/small/pepe.png',
+    priceUsd: 0.0000042,
+    mcapUsd,
+  };
+}
 
 /** Stands in for Firebase: "Bearer <uid>" signs in as <uid>, no header is a 401. */
 class FakeAuth implements CanActivate {
@@ -106,6 +121,17 @@ describe('AssetController over HTTP', () => {
     byTxHash: jest.fn(async () => null),
     listForUser: jest.fn(async () => []),
   };
+  // Tokens on other chains: the hand-kept list as the real lookup reads it, and PEPE on Ethereum.
+  const tokens = {
+    byTicker: jest.fn(async (t: string): Promise<RemoteListing | null> => (t === 'PEPE' ? farListing('PEPE', 1.8e9) : null)),
+    assetOf: jest.fn(async (mint: unknown): Promise<RemoteListing | null | undefined> => {
+      if (typeof mint !== 'string' || !mint.startsWith('remote:')) return undefined;
+      if (mint === PEPE_MINT) return farListing('PEPE', 1.8e9);
+      const kept = remoteAssetOf(mint);
+      return kept ? { asset: kept, mint, icon: null, priceUsd: null, mcapUsd: null } : null;
+    }),
+    icon: jest.fn(async (): Promise<{ contentType: string; bytes: Buffer } | null> => null),
+  };
   const wallets = {
     find: jest.fn(async (uid: string) =>
       uid === 'nobody' ? null : { uid, blockchain: 'ARC-TESTNET', walletId: 'w-1', address: WALLET, accountType: 'SCA' },
@@ -125,6 +151,7 @@ describe('AssetController over HTTP', () => {
         { provide: ActionsStore, useValue: actions },
         { provide: CircleWallets, useValue: wallets },
         { provide: RouteQuotes, useValue: routes },
+        { provide: RemoteTokens, useValue: tokens },
       ],
     })
       .overrideGuard(FirebaseAuthGuard)
@@ -178,6 +205,76 @@ describe('AssetController over HTTP', () => {
 
     market.resolveTicker.mockRejectedValueOnce(new Error('upstream'));
     expect((await post('by-ticker', { ticker: 'MEME' })).status).toBe(503);
+  });
+
+  it('by-ticker reaches a token on another chain when Arc has none', async () => {
+    market.resolveTicker.mockResolvedValueOnce(null);
+    expect((await post('by-ticker', { ticker: '$pepe' })).body).toEqual({ mint: PEPE_MINT });
+    expect(tokens.byTicker).toHaveBeenLastCalledWith('PEPE');
+  });
+
+  it('an Arc long-tail token keeps its ticker, unless a far larger coin elsewhere owns it', async () => {
+    tokens.byTicker.mockResolvedValueOnce(farListing('MEME', 10_000_000));
+    expect((await post('by-ticker', { ticker: 'MEME' })).body).toEqual({ mint: MEME });
+    tokens.byTicker.mockResolvedValueOnce(farListing('MEME', 2_000_000_000));
+    expect((await post('by-ticker', { ticker: 'MEME' })).body).toEqual({ mint: PEPE_MINT });
+  });
+
+  it("Circle's assets and a major's canonical Arc contract never leave Arc", async () => {
+    tokens.byTicker.mockClear();
+    market.pinned.mockReturnValueOnce([{ address: MEME }] as never);
+    expect((await post('by-ticker', { ticker: 'MEME' })).body).toEqual({ mint: MEME });
+    // WIF is a major: an Arc contract answering to it is the canonical one.
+    expect((await post('by-ticker', { ticker: 'WIF' })).body).toEqual({ mint: MEME });
+    expect(tokens.byTicker).not.toHaveBeenCalled();
+  });
+
+  it("a stock's ticker never goes looking on other chains", async () => {
+    tokens.byTicker.mockClear();
+    market.resolveTicker.mockResolvedValueOnce(null);
+    expect((await post('by-ticker', { ticker: 'NVDA' })).body).toEqual({ mint: null });
+    expect(tokens.byTicker).not.toHaveBeenCalled();
+  });
+
+  it('a lookup still loading is a 503 only when nothing else could answer', async () => {
+    market.resolveTicker.mockResolvedValueOnce(null);
+    tokens.byTicker.mockRejectedValueOnce(new RemoteTokensWarming('loading'));
+    expect((await post('by-ticker', { ticker: 'PEPE' })).status).toBe(503);
+    tokens.byTicker.mockRejectedValueOnce(new RemoteTokensWarming('loading'));
+    expect((await post('by-ticker', { ticker: 'MEME' })).body).toEqual({ mint: MEME });
+  });
+
+  it('by-mint describes a token on another chain with its logo and market cap, and refuses an unknown one', async () => {
+    const { body } = await post('by-mint', { mint: PEPE_MINT });
+    expect(body.asset).toMatchObject({
+      mint: PEPE_MINT,
+      symbol: 'PEPE',
+      name: 'Pepe',
+      certainty: 'inferred',
+      indicativeUsd: 118.7,
+      icon: 'https://coin-images.coingecko.com/coins/images/29850/small/pepe.png',
+      mcap: 1.8e9,
+      decimals: 18,
+    });
+    expect((await post('by-mint', { mint: 'remote:ethereum:0x000000000000000000000000000000000000dead' })).body).toEqual({ asset: null });
+    expect((await post('by-mint', { mint: 'remote:sol' })).body.asset).toMatchObject({ mint: 'remote:sol', symbol: 'SOL' });
+    tokens.assetOf.mockRejectedValueOnce(new RemoteTokensWarming('loading'));
+    expect((await post('by-mint', { mint: PEPE_MINT })).status).toBe(503);
+  });
+
+  it('quotes a token on another chain through its route, and refuses a route to nowhere', async () => {
+    expect((await post('quote', { mint: PEPE_MINT, amountUsd: 25 })).body).toMatchObject({ pricePerUnit: 118.7 });
+    expect((await post('quote', { mint: 'remote:base:0x000000000000000000000000000000000000dead', amountUsd: 25 })).status).toBe(422);
+  });
+
+  it("asks the remote lookup for a remote token's logo, and a miss is a 404", async () => {
+    const res = await fetch(`${base}/icon?mint=${PEPE_MINT}`);
+    expect(res.status).toBe(404);
+    expect(tokens.icon).toHaveBeenLastCalledWith(PEPE_MINT);
+    tokens.icon.mockResolvedValueOnce({ contentType: 'image/png', bytes: Buffer.from([0x89, 0x50]) });
+    const ok = await fetch(`${base}/icon?mint=${PEPE_MINT}`);
+    expect(ok.status).toBe(200);
+    expect(ok.headers.get('content-type')).toBe('image/png');
   });
 
   it('by-mint answers the full MatchedAsset shape', async () => {

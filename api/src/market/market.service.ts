@@ -225,6 +225,11 @@ export function tickerKey(raw: string): string {
   return symbolKey(raw.trim().replace(/^\$+/, ''));
 }
 
+/** Does this ticker name a major asset, which only its canonical contract may answer to? */
+export function isMajorTicker(raw: string): boolean {
+  return tickerKey(raw) in MAJORS;
+}
+
 /** A display name with invisible characters dropped and lookalike letters folded, spaces kept. */
 function nameKey(raw: string | null | undefined): string {
   return clean(raw, 200)

@@ -8,12 +8,12 @@ import { AmountPicker } from "./AmountPicker"
 /**
  * THE ROUTE FROM THE READER'S ARC BALANCE TO AN ASSET ON ANOTHER CHAIN.
  *
- * Arc is where the money lives; an asset on Solana, Hyperliquid, Base or
- * Ethereum is reached by moving that USDC over CCTP and swapping it on the
- * asset's home venue (arc-api routes/route-quotes.ts). Every number here is
- * live from the party that runs that leg. Sending it needs a wallet on each
- * chain, which Circle Wallets gives every account, so the room says plainly
- * that the trade opens then, and spends nothing now.
+ * Arc is where the money lives; any token on Solana, Hyperliquid, Base,
+ * Ethereum or Arbitrum is reached by moving that USDC over CCTP (delivered
+ * by Circle's Forwarding Service) and swapping it on the asset's home venue
+ * (arc-api routes/route-quotes.ts). Every number here is live from the party
+ * that runs that leg. Trades on those chains are not open yet, so the room
+ * says so plainly and spends nothing now.
  */
 export interface RoutePreviewAnswer {
   asset: { key: string; ticker: string; name: string; chain: string }

@@ -10,11 +10,14 @@ import {
   Query,
   Res,
   ServiceUnavailableException,
+  UnprocessableEntityException,
   UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { CurrentUser, FirebaseAuthGuard, type AuthedUser } from '../auth/firebase-auth.guard';
+import { isMajorTicker } from '../market/market.service';
 import { MARKET, type AssetView, type MarketPort, type SeriesPoint, type SeriesRange } from '../market/market.types';
+import { stockShaped } from '../market/stocks';
 import type { SpotPositionsResponse } from '../trade/positions';
 import {
   SOLANA_USDC_MINT,
@@ -28,7 +31,8 @@ import {
   type SellResponse,
 } from '../trade/trade.service';
 import type { Address } from '../trade/types';
-import { remoteAssetByTicker, remoteAssetOf, remoteMint, type RemoteAsset } from '../routes/remote';
+import { remoteAssetByTicker, remoteMint } from '../routes/remote';
+import { RemoteTokens, type RemoteListing } from '../routes/remote-tokens';
 import { RouteQuotes } from '../routes/route-quotes';
 
 /**
@@ -107,6 +111,12 @@ export const SPARK_RANGES: Record<SparkRange, { market: SeriesRange; windowSec: 
 
 const ICON_MAX_BYTES = 1_500_000;
 const PRICES_MAX = 50;
+/**
+ * A token elsewhere this large takes its ticker from an Arc long-tail token
+ * that only shares it: a post about $PENGU means the one worth billions, not
+ * a launchpad coin on Arc that copied the name.
+ */
+const FAR_BEATS_ARC_MCAP_USD = 50_000_000;
 
 @Controller('embed/asset')
 export class AssetController {
@@ -116,6 +126,7 @@ export class AssetController {
     private readonly trade: TradeService,
     @Inject(MARKET) private readonly market: MarketPort,
     private readonly routes: RouteQuotes,
+    private readonly tokens: RemoteTokens,
   ) {}
 
   // ─── discovery ────────────────────────────────────────────────────────────
@@ -139,20 +150,37 @@ export class AssetController {
     const raw = field(body, 'ticker');
     const key = typeof raw === 'string' ? raw.trim().replace(/^\$/, '').toUpperCase() : '';
     if (!/^[A-Z0-9]{2,10}$/.test(key)) return { mint: null };
-    // An asset on another chain, reached from Arc (routes/remote.ts), before any
-    // Arc token that happens to share its ticker.
+    // The hand-kept assets on other chains (routes/remote.ts), before any
+    // Arc token that happens to share their ticker.
     const remote = remoteAssetByTicker(key);
     if (remote) return { mint: remoteMint(remote.key) };
+
+    let arc: string | null = null;
+    let failed = false;
     try {
-      const found = await this.market.resolveTicker(key);
-      const mint = parseAddress(found);
-      if (!mint || mint === this.trade.usdc) return { mint: null };
-      const verdict = await this.market.gate(mint);
-      return { mint: verdict.ok ? mint : null };
+      const found = parseAddress(await this.market.resolveTicker(key));
+      if (found === this.trade.usdc) return { mint: null };
+      if (found && (await this.market.gate(found)).ok) arc = found;
     } catch (e) {
+      failed = true;
       this.logger.warn(`by-ticker ${key}: ${errorText(e)}`);
-      throw new ServiceUnavailableException('Lookup unavailable');
     }
+    // Circle's own assets, and a major's canonical Arc contract, are the asset itself: trade it here.
+    if (arc && (isMajorTicker(key) || this.market.pinned().some((t) => t.address.toLowerCase() === arc))) return { mint: arc };
+    // Any other token, on a chain Arc reaches. A stock's ticker never goes looking there.
+    let far: RemoteListing | null = null;
+    if (!stockShaped(key)) {
+      try {
+        far = await this.tokens.byTicker(key);
+      } catch (e) {
+        failed = true;
+        this.logger.warn(`by-ticker ${key} elsewhere: ${errorText(e)}`);
+      }
+    }
+    if (arc) return { mint: far && (far.mcapUsd ?? 0) >= FAR_BEATS_ARC_MCAP_USD ? far.mint : arc };
+    if (far) return { mint: far.mint };
+    if (failed) throw new ServiceUnavailableException('Lookup unavailable');
+    return { mint: null };
   }
 
   /**
@@ -164,8 +192,8 @@ export class AssetController {
   @Post('by-mint')
   @HttpCode(200)
   async byMint(@Body() body: unknown): Promise<ByMintResponse> {
-    const remote = remoteAssetOf(field(body, 'mint'));
-    if (remote) return { asset: await this.describeRemote(remote) };
+    const far = await this.farListing(field(body, 'mint'));
+    if (far !== undefined) return { asset: far ? await this.describeRemote(far) : null };
     const mint = parseAddress(field(body, 'mint'));
     if (!mint || mint === this.trade.usdc) return { asset: null };
     let view: AssetView | null;
@@ -189,14 +217,15 @@ export class AssetController {
    */
   @Get('icon')
   async icon(@Query('mint') mintQ: unknown, @Res() res: Response): Promise<void> {
-    const mint = typeof mintQ === 'string' && mintQ.trim() === SOLANA_USDC_MINT ? this.trade.usdc : parseAddress(mintQ);
-    if (!mint) throw new BadRequestException('mint required');
+    const far = typeof mintQ === 'string' && mintQ.startsWith('remote:');
+    const mint = far ? null : typeof mintQ === 'string' && mintQ.trim() === SOLANA_USDC_MINT ? this.trade.usdc : parseAddress(mintQ);
+    if (!far && !mint) throw new BadRequestException('mint required');
     let icon: { contentType: string; bytes: Buffer } | null;
     try {
-      icon = await this.market.icon(mint);
+      icon = far ? await this.tokens.icon(mintQ) : await this.market.icon(mint!);
     } catch (e) {
       // Not a miss: no cache header, so the chip's one retry can succeed.
-      this.logger.warn(`icon ${mint}: ${errorText(e)}`);
+      this.logger.warn(`icon ${String(mintQ)}: ${errorText(e)}`);
       res.status(404).end();
       return;
     }
@@ -220,24 +249,41 @@ export class AssetController {
   @Post('quote')
   @HttpCode(200)
   async quote(@Body() body: unknown): Promise<QuoteResponse> {
-    const remote = remoteAssetOf(field(body, 'mint'));
-    if (remote) {
-      const p = await this.routes.preview(remote, Number(field(body, 'amountUsd') ?? 25));
+    const far = await this.farListing(field(body, 'mint'));
+    if (far === null) throw new UnprocessableEntityException('No route for this asset.');
+    if (far) {
+      const p = await this.routes.preview(far.asset, Number(field(body, 'amountUsd') ?? 25));
       return { outAmount: p.outAmount, pricePerUnit: p.priceUsd, priceImpactPct: p.priceImpactPct ?? 0, route: p.legs.map((l) => l.label) };
     }
     return this.trade.quote(field(body, 'mint'), field(body, 'amountUsd'));
   }
 
+  /**
+   * A mint on another chain, as a listing; undefined when the mint is not a
+   * remote one at all, null when it names nothing we would route to. A
+   * lookup that could not finish is a 503, so the chip asks again.
+   */
+  private async farListing(mint: unknown): Promise<RemoteListing | null | undefined> {
+    try {
+      return await this.tokens.assetOf(mint);
+    } catch (e) {
+      this.logger.warn(`remote ${String(mint)}: ${errorText(e)}`);
+      throw new ServiceUnavailableException('Lookup unavailable');
+    }
+  }
+
   /** A remote asset as the chip and the token room read any asset: named, priced, never "exact". */
-  private async describeRemote(a: RemoteAsset): Promise<MatchedAsset | null> {
+  private async describeRemote(far: RemoteListing): Promise<MatchedAsset | null> {
+    const a = far.asset;
     let price: number | null = null;
     try {
       price = await this.routes.priceUsd(a);
     } catch {
-      // Named without a price is still a room; the route explains itself there.
+      // The snapshot's price, hours old at most; named without one is still a room.
+      price = far.priceUsd;
     }
     return {
-      mint: remoteMint(a.key),
+      mint: far.mint,
       symbol: a.ticker,
       name: a.name,
       displayName: a.name,
@@ -246,8 +292,8 @@ export class AssetController {
       score: 0,
       change24hPct: null,
       indicativeUsd: price,
-      icon: null,
-      mcap: null,
+      icon: far.icon,
+      mcap: far.mcapUsd,
       holderCount: null,
       spark24h: null,
       safety: { liquidityUsd: null, poolCreatedAtMs: null, mintAuthorityRetained: null, freezeAuthorityRetained: null },
