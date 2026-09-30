@@ -66,7 +66,8 @@ export const REMOTE_ASSETS: RemoteAsset[] = [
   { key: 'jup', ticker: 'JUP', name: 'Jupiter', chain: 'solana', venue: 'jupiter', address: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN', decimals: 6 },
   { key: 'bonk', ticker: 'BONK', name: 'Bonk', chain: 'solana', venue: 'jupiter', address: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', decimals: 5 },
   { key: 'hype', ticker: 'HYPE', name: 'Hyperliquid', chain: 'hyperliquid', venue: 'hyperliquid', address: 'HYPE', decimals: 8 },
-  { key: 'eth', ticker: 'ETH', name: 'Ether', chain: 'base', venue: 'kyber', address: '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', decimals: 18 },
+  // Wrapped ether, not the native coin: an ERC-20 leaves Transfer logs to count and can be approved when sold.
+  { key: 'eth', ticker: 'ETH', name: 'Ether', chain: 'base', venue: 'kyber', address: '0x4200000000000000000000000000000000000006', decimals: 18 },
   { key: 'aero', ticker: 'AERO', name: 'Aerodrome', chain: 'base', venue: 'kyber', address: '0x940181a94a35a4569e4529a3cdfb74e38fd98631', decimals: 18 },
   { key: 'virtual', ticker: 'VIRTUAL', name: 'Virtuals', chain: 'base', venue: 'kyber', address: '0x0b3e328455c4059eeb9e3f84b5543f74e24e7e1b', decimals: 18 },
   { key: 'uni', ticker: 'UNI', name: 'Uniswap', chain: 'ethereum', venue: 'kyber', address: '0x1f9840a85d5af5bf1d1762f925bdaddc4201f984', decimals: 18 },

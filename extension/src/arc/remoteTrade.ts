@@ -9,11 +9,11 @@ import { ARC_NETWORK } from "~/config/edition"
  * Base and Arbitrum trade on Arc mainnet: Circle moves the USDC over CCTP and
  * the reader's Circle account buys there, gas paid in USDC. Everywhere else
  * (Solana, Hyperliquid, Ethereum) is a priced route and nothing more yet.
- * Of the hand-kept remote assets (arc-api routes/remote.ts) AERO and VIRTUAL
- * live on Base; ETH there is the native coin, which stays a preview.
+ * Of the hand-kept remote assets (arc-api routes/remote.ts) ETH (wrapped),
+ * AERO and VIRTUAL live on Base. A native coin by address stays a preview.
  */
 const LIVE_CHAINS = new Set(["base", "arbitrum"])
-const KEPT_ON_LIVE_CHAINS = new Set(["aero", "virtual"])
+const KEPT_ON_LIVE_CHAINS = new Set(["eth", "aero", "virtual"])
 const NATIVE = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
 
 export function remoteTradable(mint: string, network: string = ARC_NETWORK): boolean {
