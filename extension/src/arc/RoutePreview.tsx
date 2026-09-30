@@ -118,26 +118,29 @@ export function RoutePreview({ mint }: { mint: string }) {
             </Typography>
           </Box>
 
-          <Box
-            component="button"
-            type="button"
-            disabled
-            sx={{
-              mt: 1.75,
-              width: "100%",
-              height: 42,
-              border: 0,
-              borderRadius: "999px",
-              font: "inherit",
-              fontSize: 13.5,
-              fontWeight: 700,
-              color: JUICE.text2,
-              backgroundColor: "rgba(255,255,255,.06)",
-              cursor: "default",
-            }}
-          >
-            {`Buy on ${r.asset.chain} · soon`}
-          </Box>
+          {/* Where it can be bought, the room's own Buy and Sell sit below this card. */}
+          {!r.available && (
+            <Box
+              component="button"
+              type="button"
+              disabled
+              sx={{
+                mt: 1.75,
+                width: "100%",
+                height: 42,
+                border: 0,
+                borderRadius: "999px",
+                font: "inherit",
+                fontSize: 13.5,
+                fontWeight: 700,
+                color: JUICE.text2,
+                backgroundColor: "rgba(255,255,255,.06)",
+                cursor: "default",
+              }}
+            >
+              {`Buy on ${r.asset.chain} · soon`}
+            </Box>
+          )}
           <Typography sx={{ fontSize: 11.5, color: JUICE.text3, mt: 1, lineHeight: 1.5, textAlign: "center" }}>
             {r.note}
           </Typography>

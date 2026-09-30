@@ -42,8 +42,8 @@ export interface RoutePreview {
   /** The destination's own network fee for the swap, when the venue estimates one. */
   networkFeeUsd: number | null;
   priceImpactPct: number | null;
-  /** False until trades on other chains open. */
-  available: false;
+  /** True where a reader can buy it from their Arc balance today (far/far-trades.ts). */
+  available: boolean;
   note: string;
   quotedAt: string;
 }

@@ -6,6 +6,7 @@ import {
   HttpCode,
   Inject,
   Logger,
+  Optional,
   Post,
   Query,
   Res,
@@ -15,6 +16,7 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { CurrentUser, FirebaseAuthGuard, type AuthedUser } from '../auth/firebase-auth.guard';
+import { FarTrades } from '../far/far-trades';
 import { isMajorTicker } from '../market/market.service';
 import { MARKET, type AssetView, type MarketPort, type SeriesPoint, type SeriesRange } from '../market/market.types';
 import { stockShaped } from '../market/stocks';
@@ -127,6 +129,7 @@ export class AssetController {
     @Inject(MARKET) private readonly market: MarketPort,
     private readonly routes: RouteQuotes,
     private readonly tokens: RemoteTokens,
+    @Optional() private readonly far: FarTrades | null = null,
   ) {}
 
   // ─── discovery ────────────────────────────────────────────────────────────
@@ -343,7 +346,10 @@ export class AssetController {
   /** Public: the client attaches a token when it has one, and it is not needed. */
   @Post('confirm')
   @HttpCode(200)
-  confirm(@Body() body: unknown): Promise<ConfirmResponse> {
+  async confirm(@Body() body: unknown): Promise<ConfirmResponse> {
+    // A trade on Base or Arbitrum settles there, not on Arc.
+    const far = this.far?.settled(field(body, 'signature'));
+    if (far) return far;
     return this.trade.confirm(field(body, 'signature'));
   }
 
@@ -351,7 +357,9 @@ export class AssetController {
   @HttpCode(200)
   @UseGuards(FirebaseAuthGuard)
   balance(@CurrentUser() user: AuthedUser, @Body() body: unknown): Promise<BalanceResponse> {
-    return this.trade.balance(user.uid, field(body, 'mint'));
+    const mint = field(body, 'mint');
+    if (this.far && typeof mint === 'string' && mint.startsWith('remote:')) return this.far.balance(user.uid, mint);
+    return this.trade.balance(user.uid, mint);
   }
 
   // ─── book and charts ──────────────────────────────────────────────────────

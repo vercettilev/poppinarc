@@ -36,6 +36,12 @@ export const ARC_OPEN_CONFIRM = "ARC_OPEN_CONFIRM"
 
 /** How long the wait for the wallet lasts before it says so. A person is reading their wallet's window. */
 const WAIT_MS = 4 * 60 * 1000
+/**
+ * A trade on Base or Arbitrum (arc-api far/far-trades.ts) is longer: the
+ * wallet sends from Arc, Circle moves the USDC over (about a minute), then the
+ * wallet signs a permit once and the order.
+ */
+const FAR_WAIT_MS = 12 * 60 * 1000
 const POLL_MS = 1500
 
 export const prepareOwnTrade = (body: PanelTradeArgs) =>
@@ -99,7 +105,7 @@ export async function tradeWithOwnWallet(
   })
   await open(prepared.confirmUrl, prepared.preparedId)
 
-  const until = now() + WAIT_MS
+  const until = now() + (args.mint.startsWith("remote:") ? FAR_WAIT_MS : WAIT_MS)
   let sent: string | undefined
   while (now() < until) {
     await wait(POLL_MS)

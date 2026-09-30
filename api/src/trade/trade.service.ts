@@ -6,11 +6,13 @@ import {
   Inject,
   Injectable,
   Logger,
+  Optional,
   ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { erc20Abi, formatUnits, type Hash, type TransactionReceipt } from 'viem';
+import { FAR_HOLDINGS, type FarHoldingsPort } from '../far/far-holdings';
 import { APP_CONFIG, AppConfig } from '../config';
 import { ArcChain, gasUsdcRaw } from '../arc/chain';
 import { circleAssetByAddress } from '../arc/network';
@@ -182,6 +184,7 @@ export class TradeService {
     private readonly actions: ActionsStore,
     private readonly wallets: CircleWallets,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
+    @Optional() @Inject(FAR_HOLDINGS) private readonly far: FarHoldingsPort | null = null,
   ) {}
 
   get usdc(): Address {
@@ -427,7 +430,9 @@ export class TradeService {
     const basis = walkLedger(rows, usdc);
     const pinned = new Map(this.market.pinned().map((t) => [lower(t.address), t]));
     // EURC is always looked for, pinned or not: a reader can hold it without ever trading it here.
-    const tokens = unique([usdc, this.eurc, ...pinned.keys(), ...basis.keys()]);
+    // The ledger also names tokens on other chains (remote:base:0x...); the far port reads those.
+    const ledgerKeys = [...basis.keys()];
+    const tokens = unique([usdc, this.eurc, ...pinned.keys(), ...ledgerKeys.filter((k) => /^0x[0-9a-f]{40}$/.test(k))]);
 
     let balances: Map<string, bigint>;
     try {
@@ -470,6 +475,14 @@ export class TradeService {
         change24hPct: view?.change24hPct ?? null,
       });
     });
+
+    const remote = ledgerKeys.filter((k) => k.startsWith('remote:'));
+    if (this.far && remote.length > 0) {
+      held.push(...(await this.far.held(owner, remote).catch((e: unknown) => {
+        this.logger.warn(`far holdings ${owner}: ${errorText(e)}`);
+        return [];
+      })));
+    }
 
     const usdcUsd = Number(this.spendableUsdc(rawOf(usdc))) / 1e6;
     return buildBook(held, basis, usdcUsd, new Set([usdc]));

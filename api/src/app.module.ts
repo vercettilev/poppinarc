@@ -20,6 +20,8 @@ import { MARKET } from './market/market.types';
 import { CircleSwapRouter } from './routers/circle-swap.router';
 import { KyberRouter } from './routers/kyber.router';
 import { ActionsStore } from './trade/actions';
+import { FAR_HOLDINGS } from './far/far-holdings';
+import { FarTrades } from './far/far-trades';
 import { OwnWalletTrades } from './trade/own-wallet';
 import { OwnWalletController } from './trade/own-wallet.controller';
 import { PageReader } from './reader/reader';
@@ -75,6 +77,8 @@ import { UsersService } from './users/users.service';
     { provide: MARKET, useExisting: MarketService },
     TradeService,
     OwnWalletTrades,
+    FarTrades,
+    { provide: FAR_HOLDINGS, useExisting: FarTrades },
     PageReader,
     RouteQuotes,
     RemoteTokens,

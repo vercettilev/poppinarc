@@ -2,6 +2,7 @@ import type { TopUpContext } from "~/helpers/topUpIntent"
 import { LAST_TRADE_USD_KEY } from "~/helpers/copyFrom"
 import { messageOf } from "~/helpers/refusalCopy"
 import { contractAddressesIn } from "~/arc/addresses"
+import { remoteTradable } from "~/arc/remoteTrade"
 import { ARC_EDITION, CAP } from "~/config/edition"
 import { CHAIN, shortAddress, USDC_MINT as EDITION_USDC_MINT } from "~/arc/chain"
 import { PRESET_USD, pocketPick, reasonOf } from "~/helpers/tradeMath"
@@ -6959,13 +6960,15 @@ export function createXStrip(deps: XStripDeps): XStripController {
       closeSheet()
       askWalOnce()
       /*
-       * AN ASSET ON ANOTHER CHAIN (mint "remote:<key>", arc-api routes/remote.ts).
-       * It is reached from the reader's Arc balance over CCTP, and until those
-       * trades open the press shows the priced route in the sidebar instead of
-       * spending anything: "Preview", never a Buy that cannot happen.
+       * AN ASSET ON ANOTHER CHAIN (mint "remote:...", arc-api routes/remote.ts).
+       * It is reached from the reader's Arc balance over CCTP. On Base and
+       * Arbitrum it can be bought (arc/remoteTrade.ts) and the key says Buy;
+       * elsewhere the press shows the priced route and spends nothing:
+       * "Preview", never a Buy that cannot happen. Either way the press
+       * opens the card, where the route is laid out before any money moves.
        */
       if (row.mint.startsWith("remote:")) {
-        renderEnd(poppinMark(), btn("buy", "Preview", () => openCard("buy")))
+        renderEnd(poppinMark(), btn("buy", remoteTradable(row.mint) ? "Buy" : "Preview", () => openCard("buy")))
         return
       }
       if (row.thin) {

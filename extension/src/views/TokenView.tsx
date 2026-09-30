@@ -1,3 +1,4 @@
+import { remoteTradable } from "~/arc/remoteTrade"
 import ArrowBackIcon from "@mui/icons-material/ArrowBack"
 import { alpha, Box, Typography } from "@mui/material"
 import { useCallback, useEffect, useRef, useState } from "react"
@@ -74,6 +75,8 @@ export default function TokenView() {
   const { mint = "" } = useParams()
   /** On another chain, reached from Arc over CCTP (arc/RoutePreview.tsx). */
   const isRemote = mint.startsWith("remote:")
+  /** On Base or Arbitrum it can be bought and sold from here (arc/remoteTrade.ts). */
+  const remoteLive = isRemote && remoteTradable(mint)
   const navigate = useNavigate()
   const routed = useLocation()
   /**
@@ -525,10 +528,10 @@ export default function TokenView() {
             you hold, what the market looks like, what you already did
             here. Reading order, then acting order.
           */}
-          {/* An asset on another chain: the priced route from the Arc balance, in place of the doors. */}
+          {/* An asset on another chain: the priced route from the Arc balance, above the doors where it can be bought. */}
           {isRemote && <RoutePreview mint={asset.mint} />}
           {/* ── the doors that move money ── */}
-          {!isRemote && (
+          {(!isRemote || remoteLive) && (
           <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
             {(["buy", "sell"] as const).map((side) => {
               const isOpen = sheetMode === side

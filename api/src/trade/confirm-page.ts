@@ -12,6 +12,12 @@ import { POPPIN_LOGO_DATA_URI } from '../auth/wallet-page-logo';
  * built: an approval of this amount when one is needed, then the swap. The
  * server reads the swap from the chain before it counts it.
  *
+ * A TRADE ON ANOTHER CHAIN (far/far-trades.ts) runs as steps the server
+ * hands out one at a time: send USDC from Arc, wait while Circle moves it,
+ * switch the wallet to Base or Arbitrum, sign the paymaster's permit (typed
+ * data), sign the order (the user operation's hash), wait for it to land.
+ * The page never decides what comes next; it asks /next and reports to /step.
+ *
  * The wallet used last is remembered in this page's own storage, so the next
  * trade starts in it without a list. Nothing else is stored.
  *
@@ -162,14 +168,68 @@ export function confirmTradePage(): string {
     }, 700);
   }
 
-  function switchChain(p) {
-    return p.request({ method: "wallet_switchEthereumChain", params: [{ chainId: data.chain.chainId }] })
+  function switchChain(p, chain) {
+    chain = chain || data.chain;
+    return p.request({ method: "wallet_switchEthereumChain", params: [{ chainId: chain.chainId }] })
       .catch(function (e) {
         var code = e && (e.code || (e.data && e.data.originalError && e.data.originalError.code));
         if (code === 4001) throw e;
-        // 4902: the wallet does not know Arc yet. Adding it also switches to it.
-        return p.request({ method: "wallet_addEthereumChain", params: [data.chain] });
+        // 4902: the wallet does not know this chain yet. Adding it also switches to it.
+        return p.request({ method: "wallet_addEthereumChain", params: [chain] });
       });
+  }
+
+  function onChain(p, chain) {
+    return p.request({ method: "eth_chainId" }).then(function (cid) {
+      if (lower(cid) !== lower(chain.chainId)) return switchChain(p, chain);
+    });
+  }
+
+  // A trade on another chain: do what the server says, report it, ask again.
+  function farLoop(p, name) {
+    function handle(s) {
+      if (s.kind === "done") { finish({ state: "done" }); return; }
+      if (s.kind === "failed") throw new Error(s.say || "That trade did not go through.");
+      say(s.say || "");
+      if (s.kind === "wait") {
+        return new Promise(function (r) { setTimeout(r, 2500); })
+          .then(function () { return post("/next", { id: ID, t: KEY }); }).then(handle);
+      }
+      if (s.kind === "arc") {
+        return onChain(p, s.chain).then(function () {
+          var hashes = {}, step = Promise.resolve();
+          s.txs.forEach(function (tx) {
+            step = step.then(function () {
+              return p.request({ method: "eth_sendTransaction", params: [{ from: data.address, to: tx.to, data: tx.data, value: tx.value }] });
+            }).then(function (hash) {
+              hashes[tx.kind] = hash;
+              if (tx.kind === "approve") { say("Waiting for Arc."); return waitReceipt(p, hash); }
+            });
+          });
+          return step.then(function () {
+            say("Confirming on Arc.");
+            return post("/step", { id: ID, t: KEY, kind: "arc", approveHash: hashes.approve || null, burnHash: hashes.swap });
+          });
+        }).then(handle);
+      }
+      if (s.kind === "sign-typed") {
+        return onChain(p, s.chain).then(function () {
+          return p.request({ method: "eth_signTypedData_v4", params: [data.address, JSON.stringify(s.typedData)] });
+        }).then(function (sig) {
+          say("One moment.");
+          return post("/step", { id: ID, t: KEY, kind: "sign-typed", signature: sig });
+        }).then(handle);
+      }
+      if (s.kind === "sign-hash") {
+        return p.request({ method: "personal_sign", params: [s.hash, data.address] })
+          .then(function (sig) {
+            say("Sending your order.");
+            return post("/step", { id: ID, t: KEY, kind: "sign-hash", signature: sig });
+          }).then(handle);
+      }
+      throw new Error("Something went wrong. Try again.");
+    }
+    return post("/next", { id: ID, t: KEY }).then(handle);
   }
 
   function waitReceipt(p, hash) {
@@ -230,15 +290,16 @@ export function confirmTradePage(): string {
         if (mine.indexOf(lower(data.address)) < 0) {
           throw new Error("Switch " + name + " to " + short(data.address) + ", the wallet you signed in with, then try again.");
         }
-        return p.request({ method: "eth_chainId" });
+        if (data.flow === "far") return farLoop(p, name);
+        return p.request({ method: "eth_chainId" })
+          .then(function (cid) { if (lower(cid) !== lower(data.chain.chainId)) return switchChain(p); })
+          .then(function () { return sendAll(p, name); })
+          .then(function (h) {
+            say("Confirming on Arc.");
+            return post("/submit", { id: ID, t: KEY, approveHash: h.approve || null, swapHash: h.swap });
+          })
+          .then(finish);
       })
-      .then(function (cid) { if (lower(cid) !== lower(data.chain.chainId)) return switchChain(p); })
-      .then(function () { return sendAll(p, name); })
-      .then(function (h) {
-        say("Confirming on Arc.");
-        return post("/submit", { id: ID, t: KEY, approveHash: h.approve || null, swapHash: h.swap });
-      })
-      .then(finish)
       .catch(function (err) {
         var declined = err && (err.code === 4001 || /reject|denied|cancel/i.test(String(err.message || "")));
         say(declined ? "You declined in " + name + ". Pick a wallet to try again." : (err && err.message) || "Something went wrong. Try again.", true);
