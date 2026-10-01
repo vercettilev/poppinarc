@@ -5,7 +5,7 @@ import { loadConfig } from '../config';
 import type { RemoteListing } from '../routes/remote-tokens';
 import { circleAccount } from './circle-account';
 import { FAR_NETWORKS, FORWARD_HOOK, tokenMessengerAbi } from './far-chains';
-import { ACCOUNT_RESERVE_RAW, FarTrades, type FarStep } from './far-trades';
+import { ACCOUNT_RESERVE_RAW, FarTrades, within, type FarStep } from './far-trades';
 import type { Bundler } from './user-ops';
 
 beforeAll(() => Logger.overrideLogger(false));
@@ -259,13 +259,20 @@ describe('FarTrades: a sell on Base back to the Arc balance', () => {
 });
 
 describe('FarTrades: holdings', () => {
-  it('reads what the account still holds of the ledger’s tokens, priced by the live route', async () => {
+  it("reads what the account still holds of the ledger's tokens, priced by the market snapshot", async () => {
     const w = world();
     w.state.accountBrett = 5n * 10n ** 18n;
     const held = await w.far.held(OWNER, [`remote:base:${BRETT}`, `remote:base:${BRETT}`]);
     expect(held).toEqual([
-      { address: `remote:base:${BRETT}`, raw: 5n * 10n ** 18n, decimals: 18, symbol: 'BRETT', name: 'Brett', kind: 'long-tail', priceUsd: 0.0057, change24hPct: null },
+      { address: `remote:base:${BRETT}`, raw: 5n * 10n ** 18n, decimals: 18, symbol: 'BRETT', name: 'Brett', kind: 'long-tail', priceUsd: 0.0056, change24hPct: null },
     ]);
   });
 });
 
+describe('within', () => {
+  it('answers with the fallback when a read is too slow or fails, so the book never waits on it', async () => {
+    expect(await within(20, new Promise((r) => setTimeout(() => r('late'), 200)), 'skipped')).toBe('skipped');
+    expect(await within(200, Promise.resolve('fast'), 'skipped')).toBe('fast');
+    expect(await within(200, Promise.reject(new Error('rpc down')), 'skipped')).toBe('skipped');
+  });
+});

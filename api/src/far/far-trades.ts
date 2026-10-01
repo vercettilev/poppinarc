@@ -153,6 +153,8 @@ export const ACCOUNT_RESERVE_RAW = 250_000n;
 const PERMIT_RAW = 10_000_000n;
 const PERMIT_LOW_RAW = 1_000_000n;
 const NATIVE = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
+/** How long one token on another chain may hold up the reader's book. */
+const HELD_WAIT_MS = 3_000;
 
 @Injectable()
 export class FarTrades implements FarHoldingsPort {
@@ -195,19 +197,23 @@ export class FarTrades implements FarHoldingsPort {
     );
   }
 
-  /** The reader's tokens in their Circle accounts, priced by the live route. */
+  /**
+   * The reader's tokens in their Circle accounts. Read in parallel, each
+   * within a few seconds, and priced by the market snapshot before any route:
+   * the book waits on this, and the Arc balance on the same screen must not
+   * wait for a slow RPC on Base or a busy KyberSwap.
+   */
   async held(owner: Hex, mints: string[]): Promise<HeldToken[]> {
     const account = circleAccount(lower(owner)).address;
-    const out: HeldToken[] = [];
-    for (const mint of [...new Set(mints)]) {
+    const one = async (mint: string): Promise<HeldToken | null> => {
       const listing = await this.tokens.assetOf(mint).catch(() => null);
       const asset = listing?.asset;
-      if (!listing || !asset || !this.opensFor(asset) || !isFarChain(asset.chain)) continue;
+      if (!listing || !asset || !this.opensFor(asset) || !isFarChain(asset.chain)) return null;
       const chain = this.net.chains[asset.chain];
       const raw = await this.balanceOf(this.clientFor(chain), asset.address as Hex, account).catch(() => 0n);
-      if (raw <= 0n) continue;
-      const price = await this.routes.priceUsd(asset).catch(() => listing.priceUsd);
-      out.push({
+      if (raw <= 0n) return null;
+      const price = listing.priceUsd ?? (await this.routes.priceUsd(asset).catch(() => null));
+      return {
         address: listing.mint as Hex,
         raw,
         decimals: asset.decimals,
@@ -216,9 +222,10 @@ export class FarTrades implements FarHoldingsPort {
         kind: 'long-tail',
         priceUsd: price,
         change24hPct: null,
-      });
-    }
-    return out;
+      };
+    };
+    const rows = await Promise.all([...new Set(mints)].map((m) => within(HELD_WAIT_MS, one(m), null)));
+    return rows.filter((r): r is HeldToken => r !== null);
   }
 
   owns(id: unknown): boolean {
@@ -790,4 +797,21 @@ function trim(s: string): string {
   const [w, f = ''] = s.split('.');
   const kept = f.slice(0, 6).replace(/0+$/, '');
   return kept ? `${w}.${kept}` : w!;
+}
+
+/** `p`, or `fallback` when it has not answered within `ms`. */
+export function within<T>(ms: number, p: Promise<T>, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    const t = setTimeout(() => resolve(fallback), ms);
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      () => {
+        clearTimeout(t);
+        resolve(fallback);
+      },
+    );
+  });
 }
