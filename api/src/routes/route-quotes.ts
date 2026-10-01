@@ -51,6 +51,7 @@ export interface RoutePreview {
 const UA = { 'user-agent': 'poppin-arc/1.0 (+https://github.com/vercettilev/poppinarc)' };
 const TTL_MS = 15_000;
 const FEE_TTL_MS = 10 * 60_000;
+const PRICE_TTL_MS = 5 * 60_000;
 /** A Solana swap's network fee, priority included, measured in cents at most. */
 const SOLANA_FEE_USD = 0.002;
 
@@ -66,6 +67,7 @@ export class RouteQuotes {
   private readonly logger = new Logger('routes');
   private readonly previews = new Map<string, { at: number; value: Promise<RoutePreview> }>();
   private readonly fees = new Map<string, { at: number; value: BridgeFees }>();
+  private readonly prices = new Map<string, { at: number; price: number }>();
   fetchFn: Fetch = (...a) => fetch(...a);
 
   preview(asset: RemoteAsset, amountUsd: number): Promise<RoutePreview> {
@@ -83,8 +85,19 @@ export class RouteQuotes {
   }
 
   /** A whole unit's price, from a $10 route. */
+  /**
+   * A whole unit's price, from a $10 route, kept five minutes. Chips ask for
+   * it in bulk while a feed scrolls, and every ask was a KyberSwap route from
+   * the same address as the Arc trades: on 2026-10-01 KyberSwap answered 429
+   * and a reader's EURC buy failed with it. The card's route stays live.
+   */
   async priceUsd(asset: RemoteAsset): Promise<number> {
-    return (await this.preview(asset, 10)).priceUsd;
+    const hit = this.prices.get(asset.key);
+    if (hit && Date.now() - hit.at < PRICE_TTL_MS) return hit.price;
+    const price = (await this.preview(asset, 10)).priceUsd;
+    if (this.prices.size > 2_000) this.prices.clear();
+    this.prices.set(asset.key, { at: Date.now(), price });
+    return price;
   }
 
   private async build(asset: RemoteAsset, amountUsd: number): Promise<RoutePreview> {

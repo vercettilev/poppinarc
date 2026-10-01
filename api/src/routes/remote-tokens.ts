@@ -315,7 +315,7 @@ export class RemoteTokens implements OnModuleInit, OnModuleDestroy {
     const curated = remoteAssetOf(mint);
     if (curated) {
       const face = this.bySymbol.get(curated.ticker);
-      return { asset: curated, mint: remoteMint(curated.key), icon: face?.image ?? null, priceUsd: null, mcapUsd: face?.mcapUsd ?? null };
+      return { asset: curated, mint: remoteMint(curated.key), icon: face?.image ?? null, priceUsd: face?.priceUsd ?? null, mcapUsd: face?.mcapUsd ?? null };
     }
     const at = parseAnyTokenMint(mint);
     if (!at) return null;

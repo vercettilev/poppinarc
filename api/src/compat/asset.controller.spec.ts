@@ -262,7 +262,8 @@ describe('AssetController over HTTP', () => {
       symbol: 'PEPE',
       name: 'Pepe',
       certainty: 'inferred',
-      indicativeUsd: 118.7,
+      // The market snapshot's price: a chip asks no route of KyberSwap.
+      indicativeUsd: 0.0000042,
       icon: 'https://coin-images.coingecko.com/coins/images/29850/small/pepe.png',
       mcap: 1.8e9,
       decimals: 18,

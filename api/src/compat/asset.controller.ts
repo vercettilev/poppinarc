@@ -278,12 +278,16 @@ export class AssetController {
   /** A remote asset as the chip and the token room read any asset: named, priced, never "exact". */
   private async describeRemote(far: RemoteListing): Promise<MatchedAsset | null> {
     const a = far.asset;
-    let price: number | null = null;
-    try {
-      price = await this.routes.priceUsd(a);
-    } catch {
-      // The snapshot's price, hours old at most; named without one is still a room.
-      price = far.priceUsd;
+    // The market snapshot's price first (CoinGecko, refreshed every few hours):
+    // a chip costs no route. Only what the snapshot cannot price (the
+    // hand-kept shares) asks for one, and that answer is kept five minutes.
+    let price: number | null = far.priceUsd;
+    if (price === null) {
+      try {
+        price = await this.routes.priceUsd(a);
+      } catch {
+        // Named without a price is still a room; the route explains itself there.
+      }
     }
     return {
       mint: far.mint,
