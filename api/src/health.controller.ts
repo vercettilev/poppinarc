@@ -5,7 +5,7 @@ import { DbService } from './db/db.service';
 /**
  * What is configured, never with what. Railway's healthcheck points here, and
  * it answers 200 even when Circle is not configured yet, so a missing key shows
- * up as `circle: false` instead of a crash loop.
+ * up as `circleWallets: false` instead of a crash loop.
  */
 @Controller('health')
 export class HealthController {
@@ -21,7 +21,9 @@ export class HealthController {
       network: this.config.network.name,
       chainId: this.config.network.chainId,
       db: this.db.ready,
-      circle: Boolean(this.config.circle.apiKey && this.config.circle.entitySecret),
+      // Circle Wallets (custodial accounts) only; USDC, CCTP and the Paymaster need no key.
+      circleWallets: Boolean(this.config.circle.apiKey && this.config.circle.entitySecret),
+      accounts: this.config.walletAccounts === 'own' ? 'own-wallet' : 'circle-wallets',
       reader: Boolean(this.config.reader.apiKey),
       fee: this.config.feeBps > 0 && this.config.feeRecipient !== null,
     };
