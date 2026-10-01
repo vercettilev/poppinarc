@@ -322,6 +322,11 @@ export class RemoteTokens implements OnModuleInit, OnModuleDestroy {
     const key = `${at.chain}:${at.address}`;
     const known = this.listings.get(key);
     if (known) return known;
+    // A hand-kept share needs no snapshot, so it answers while the snapshot loads.
+    if (at.chain === 'base') {
+      const ticker = Object.keys(REMOTE_STOCKS).find((k) => REMOTE_STOCKS[k]!.address === at.address);
+      if (ticker) return this.stockListing(ticker);
+    }
     if (!this.ready) throw new RemoteTokensWarming('The token list is still loading.');
     if (at.chain === 'hyperliquid') {
       const spot = await this.spotMeta();
@@ -329,10 +334,6 @@ export class RemoteTokens implements OnModuleInit, OnModuleDestroy {
       const coin = tokenId ? this.byId.get(this.idByKey.get(`hltoken:${tokenId}`) ?? '') : undefined;
       const token = tokenId ? spot.token(tokenId) : null;
       return coin && token ? this.listing(coin, 'hyperliquid', token.book, token.szDecimals) : null;
-    }
-    if (at.chain === 'base') {
-      const ticker = Object.keys(REMOTE_STOCKS).find((k) => REMOTE_STOCKS[k]!.address === at.address);
-      if (ticker) return this.stockListing(ticker);
     }
     const coin = this.byId.get(this.idByKey.get(key) ?? '');
     if (coin) return this.listing(coin, at.chain, at.address, await this.decimalsOf(at.chain, at.address));
