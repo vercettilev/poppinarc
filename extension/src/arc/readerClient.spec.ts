@@ -20,10 +20,10 @@ describe("the reader client", () => {
   afterEach(() => vi.useRealTimers())
 
   it("asks about the posts of one moment together, and each post once", async () => {
-    sendApiRequest.mockImplementation(async ({ data }: { data: { items: Array<{ id: string }> } }) => ({
+    sendApiRequest.mockImplementation(async ({ data }: { data: { items: Array<{ id: string; text: string }> } }) => ({
       items: data.items.map((i) =>
-        i.id === "a"
-          ? { id: "a", asset: { mint: EURC, ticker: "EURC", name: "Euro", displayName: "Euro" }, reason: "ECB held rates." }
+        i.text.startsWith("ECB")
+          ? { id: i.id, asset: { mint: EURC, ticker: "EURC", name: "Euro", displayName: "Euro" }, reason: "ECB held rates." }
           : { id: i.id, asset: null, reason: "Not about an asset." },
       ),
     }))
@@ -37,6 +37,18 @@ describe("the reader client", () => {
 
     await readText("a", "ECB holds rates at 2%")
     expect(sendApiRequest).toHaveBeenCalledTimes(1)
+  })
+
+  it("sends a news page's question under an id arc-api accepts, not under its URL", async () => {
+    sendApiRequest.mockImplementation(async ({ data }: { data: { items: Array<{ id: string }> } }) => ({
+      items: data.items.map((i) => ({ id: i.id, asset: { mint: EURC, ticker: "EURC", name: "Euro", displayName: "Euro" }, reason: "ECB cut rates." })),
+    }))
+    const url = "https://www.bbc.com/news/articles/c30mz648nyno?at_medium=RSS&at_campaign=rss-very-long-tracking-tail"
+    const hit = readText(url, "European Central Bank cuts interest rates again")
+    await vi.advanceTimersByTimeAsync(400)
+    expect((await hit)?.reason).toBe("ECB cut rates.")
+    const sent = sendApiRequest.mock.calls[0]![0].data.items as Array<{ id: string }>
+    for (const { id } of sent) expect(id).toMatch(/^[\w:.-]{1,64}$/)
   })
 
   it("sends nothing for a post with no sign of money", async () => {

@@ -33,7 +33,8 @@ export interface ReadAnswer {
 
 const MAX_ITEMS = 8;
 const MAX_TEXT = 1_200;
-const PER_HOUR = 120;
+/** Per account. A feed read for an hour passed 120 on 2026-10-01; the day's dollar cap is the real limit. */
+const PER_HOUR = 600;
 const HOUR_MS = 60 * 60 * 1000;
 const CACHE_DAYS = 7;
 

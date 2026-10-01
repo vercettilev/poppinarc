@@ -165,7 +165,7 @@ describe('PageReader', () => {
   it('turns away a flood from one account, and malformed asks', async () => {
     const { reader } = setup({ ANTHROPIC_API_KEY: '' });
     const eight = Array.from({ length: 8 }, (_, i) => ({ id: `t${i}`, text: 'hello' }));
-    for (let i = 0; i < 15; i++) await reader.read('u1', eight);
+    for (let i = 0; i < 75; i++) await reader.read('u1', eight);
     await expect(reader.read('u1', eight)).rejects.toBeInstanceOf(HttpException);
     await expect(reader.read('u2', [])).rejects.toThrow('between 1 and 8');
     await expect(reader.read('u2', [{ id: 'a b', text: 'x' }])).rejects.toThrow('short id');

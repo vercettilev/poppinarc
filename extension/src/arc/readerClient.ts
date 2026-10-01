@@ -50,15 +50,22 @@ async function flush(): Promise<void> {
   if (queue.length) timer = setTimeout(() => void flush(), 0)
   if (!batch.length) return
   try {
+    /*
+     * SHORT IDS ON THE WIRE. arc-api takes ids of letters, digits and
+     * ":._-", 64 at most, and refuses the whole batch otherwise. A tweet's id
+     * fits; a news page's id is its URL, which never does, so until
+     * 2026-10-01 every headline's question was a 400 and no headline ever got
+     * an AI chip. The batch's position is the id now, mapped back here.
+     */
     const r = await sendApiRequest<{ items?: ReadAnswer[] }>({
       url: "/embed/asset/read",
       method: "POST",
-      data: { items: batch.map(({ id, text }) => ({ id, text })) },
+      data: { items: batch.map(({ text }, i) => ({ id: `t${i}`, text })) },
       apiType: "backend",
     })
     const byId = new Map((r?.items ?? []).map((a) => [a.id, a]))
-    for (const q of batch) {
-      const a = byId.get(q.id)
+    for (const [i, q] of batch.entries()) {
+      const a = byId.get(`t${i}`)
       q.resolve(
         a?.asset && a.reason
           ? {
