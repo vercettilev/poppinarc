@@ -118,7 +118,8 @@ export function confirmTradePage(): string {
 
   function render(final) {
     list.innerHTML = "";
-    if (settled) return;
+    // While a wallet is working, the page is only the trade and one line: no list to choose from.
+    if (settled || busy) { document.getElementById("get").className = "get hidden"; return; }
     found.forEach(function (d) {
       var b = document.createElement("button");
       b.className = "w"; b.type = "button"; b.disabled = busy;
@@ -157,15 +158,38 @@ export function confirmTradePage(): string {
       if (found.size === 0 && window.ethereum) {
         found.set("injected", { info: { uuid: "injected", name: "Browser wallet", icon: "", rdns: "" }, provider: window.ethereum });
       }
-      render(true);
       if (started || busy) return;
-      // The wallet used last time, or the only one there is, starts on its own.
-      var last = remembered(), pick = null;
-      found.forEach(function (d) { if (last && d.info && d.info.rdns === last) pick = d; });
-      if (!pick && found.size === 1) found.forEach(function (d) { pick = d; });
-      if (pick) run(pick);
-      else if (found.size > 0) say("Choose the wallet you signed in with.");
+      // The wallet already connected to this account starts on its own: each
+      // one is asked which accounts it has given this site (eth_accounts opens
+      // nothing), and the one holding the signed-in address wins. Then the
+      // wallet used last time, then the only one there is. The list shows only
+      // when none of those can be told apart.
+      connectedWallet().then(function (pick) {
+        if (started || busy) return;
+        var last = remembered();
+        if (!pick) found.forEach(function (d) { if (last && d.info && d.info.rdns === last) pick = d; });
+        if (!pick && found.size === 1) found.forEach(function (d) { pick = d; });
+        if (pick) { run(pick); return; }
+        render(true);
+        if (found.size > 0) say("Choose the wallet you signed in with.");
+      });
     }, 700);
+  }
+
+  function connectedWallet() {
+    var asks = [];
+    found.forEach(function (d) {
+      asks.push(Promise.race([
+        d.provider.request({ method: "eth_accounts" }).then(function (a) {
+          return (a || []).map(lower).indexOf(lower(data.address)) >= 0 ? d : null;
+        }, function () { return null; }),
+        new Promise(function (r) { setTimeout(function () { r(null); }, 1500); })
+      ]));
+    });
+    return Promise.all(asks).then(function (all) {
+      for (var i = 0; i < all.length; i++) if (all[i]) return all[i];
+      return null;
+    });
   }
 
   function switchChain(p, chain) {
