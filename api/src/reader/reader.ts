@@ -2,7 +2,7 @@ import { BadRequestException, HttpException, HttpStatus, Inject, Injectable, Log
 import { createHash } from 'node:crypto';
 import { APP_CONFIG, AppConfig } from '../config';
 import { DbService } from '../db/db.service';
-import { looksLikeMoney, readerAsset } from './catalog';
+import { looksLikeMoney, READER_KEYS, readerAsset } from './catalog';
 import { askClaude, costMicroUsd, type ReaderVerdict } from './claude';
 
 /**
@@ -129,7 +129,8 @@ export class PageReader {
   }
 
   private cacheKey(text: string): string {
-    return createHash('sha256').update(`${this.config.reader.model}\u0000${text}`).digest('hex');
+    // The catalog is part of the question: an answer cached before a new asset existed is not an answer about it.
+    return createHash('sha256').update(`${this.config.reader.model}\u0000${READER_KEYS.join(',')}\u0000${text}`).digest('hex');
   }
 
   /** At most PER_HOUR texts an hour for one account; a text already read costs the same, which is fine. */

@@ -36,6 +36,22 @@ const NEWS_HOSTS = [
   "wsj.com",
   "finance.yahoo.com",
   "theinformation.com",
+  // Added 2026-10-01 for the Arc edition's demo pages: general news that moves
+  // markets, and the crypto desks. The headline is the whole input either way.
+  "bbc.com",
+  "bbc.co.uk",
+  "apnews.com",
+  "cnn.com",
+  "nytimes.com",
+  "theguardian.com",
+  "forbes.com",
+  "fortune.com",
+  "axios.com",
+  "investing.com",
+  "coindesk.com",
+  "cointelegraph.com",
+  "theblock.co",
+  "decrypt.co",
 ]
 
 export const NEWS_SITE: SiteAdapter = {

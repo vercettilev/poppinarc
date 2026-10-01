@@ -1,5 +1,5 @@
 import type { ArcNetwork } from '../arc/network';
-import { remoteMint } from '../routes/remote';
+import { REMOTE_STOCKS, remoteMint } from '../routes/remote';
 
 /**
  * WHAT THE READER MAY NAME, and nothing else.
@@ -61,10 +61,37 @@ export const READER_ASSETS: ReaderAsset[] = [
   ...remote('uni', 'UNI', 'Uniswap', 'Uniswap and its UNI token.'),
   ...remote('aave', 'AAVE', 'Aave', 'Aave, the lending protocol, and its AAVE token.'),
   ...remote('link', 'LINK', 'Chainlink', 'Chainlink and its LINK token.'),
+  // Companies, bought as Coinbase's tokenized shares on Base (routes/remote.ts, REMOTE_STOCKS).
+  ...stock('NVDA'),
+  ...stock('AAPL'),
+  ...stock('TSLA'),
+  ...stock('MSFT'),
+  ...stock('AMZN'),
+  ...stock('GOOGL'),
+  ...stock('META'),
+  ...stock('MSTR'),
+  ...stock('PLTR'),
+  ...stock('MU'),
+  ...stock('SNDK'),
 ];
 
 function remote(key: string, ticker: string, name: string, about: string): ReaderAsset[] {
   return [{ key, ticker, name, about, names: [new RegExp(`\\$${ticker}\\b`, 'i')], address: () => remoteMint(key) }];
+}
+
+/** A company's shares. The cashtag alone is a rule; the company's name is the reader's call, in context. */
+function stock(ticker: string): ReaderAsset[] {
+  const s = REMOTE_STOCKS[ticker]!;
+  return [
+    {
+      key: ticker.toLowerCase(),
+      ticker,
+      name: s.name,
+      about: `${s.name} the company's stock (${ticker}): its share price, earnings, buybacks, guidance or company news read as a reason to buy or sell ${s.name} shares. Not a story that only mentions ${s.name} in passing.`,
+      names: [new RegExp(`\\$${ticker}\\b`)],
+      address: () => remoteMint(`base:${s.address}`),
+    },
+  ];
 }
 
 export const READER_KEYS = READER_ASSETS.map((a) => a.key);

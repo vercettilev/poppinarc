@@ -117,3 +117,29 @@ export function parseAnyTokenMint(mint: unknown): { chain: RemoteChain; address:
   const key = anyTokenKey(chain, rest.slice(at + 1));
   return key ? { chain, address: key.slice(chain.length + 1) } : null;
 }
+
+/** CoinGecko's image CDN, where each share's logo is listed (read through Base's explorer, 2026-10-01). */
+const CG_IMG = 'https://assets.coingecko.com/coins/images/';
+
+/**
+ * TOKENIZED STOCKS, KEPT BY HAND. A stock's ticker never goes to the market
+ * snapshot: "$NVDA" is the company, and the coin CoinGecko files under that
+ * symbol could be anyone's. These are Coinbase's tokenized shares on Base,
+ * each read from CoinGecko's listing (nvidia-coinbase-tokenized-stock and
+ * its siblings) and each routed by KyberSwap at under a quarter percent
+ * for $10 on 2026-09-30. Base is where the reader can buy them from Arc.
+ */
+export const REMOTE_STOCKS: Readonly<Record<string, { name: string; address: string; icon: string }>> = {
+  NVDA: { name: 'NVIDIA', address: '0xb20000000000000000000078ee7ce2fe4908108c', icon: CG_IMG + '102175596/small/nvda_200x200.png' },
+  AAPL: { name: 'Apple', address: '0xb200000000000000000000c2e324d24d7eecd1fb', icon: CG_IMG + '102175597/small/aapl_200x200.png' },
+  TSLA: { name: 'Tesla', address: '0xb2000000000000000000001e800a7f5189430cd0', icon: CG_IMG + '102178285/small/tsla-200.png' },
+  MSFT: { name: 'Microsoft', address: '0xb200000000000000000000ab99cfa739e253872b', icon: CG_IMG + '102178281/small/msft-200.png' },
+  AMZN: { name: 'Amazon', address: '0xb200000000000000000000d9192b6b456483c2e8', icon: CG_IMG + '102178280/small/amzn-200.png' },
+  GOOGL: { name: 'Alphabet', address: '0xb2000000000000000000002d0ba3164cc74f58b7', icon: CG_IMG + '102175598/small/goog_200x200.png' },
+  GOOG: { name: 'Alphabet', address: '0xb2000000000000000000002d0ba3164cc74f58b7', icon: CG_IMG + '102175598/small/goog_200x200.png' },
+  META: { name: 'Meta', address: '0xb2000000000000000000008bc8786b856e61707c', icon: CG_IMG + '102175599/small/meta_200x200.png' },
+  MSTR: { name: 'Strategy', address: '0xb2000000000000000000004884b426556b92883d', icon: CG_IMG + '102178282/small/mstr-200.png' },
+  PLTR: { name: 'Palantir', address: '0xb2000000000000000000007d16372840df4dabbe', icon: CG_IMG + '102178880/small/PLTR.png' },
+  MU: { name: 'Micron', address: '0xb200000000000000000000fd2f87532b90095211', icon: CG_IMG + '102178881/small/MU.png' },
+  SNDK: { name: 'SanDisk', address: '0xb200000000000000000000397293cb8cda9a10c5', icon: CG_IMG + '102178283/small/sndk-200.png' },
+};

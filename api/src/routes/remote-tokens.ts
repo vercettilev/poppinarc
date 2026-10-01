@@ -3,6 +3,7 @@ import { createPublicClient, erc20Abi, http, type PublicClient } from 'viem';
 import { fetchIcon, type IconBytes } from '../market/sources';
 import {
   REMOTE_PREFIX,
+  REMOTE_STOCKS,
   VENUE_OF,
   anyTokenKey,
   parseAnyTokenMint,
@@ -40,6 +41,8 @@ import {
  * Solana tokens past the top 1,500 still resolve when Jupiter marks them
  * verified and they are worth at least $10M.
  */
+
+export { REMOTE_STOCKS };
 
 export interface RemoteListing {
   asset: RemoteAsset;
@@ -123,28 +126,6 @@ const MARKET_TICKERS: ReadonlySet<string> = new Set([
   'TNX', 'US10Y', 'US02Y', 'WTI', 'BRENT', 'OIL', 'GOLD', 'XAU', 'XAG', 'SILVER', 'NATGAS',
 ]);
 
-/**
- * TOKENIZED STOCKS, KEPT BY HAND. A stock's ticker never goes to the market
- * snapshot: "$NVDA" is the company, and the coin CoinGecko files under that
- * symbol could be anyone's. These are Coinbase's tokenized shares on Base,
- * each read from CoinGecko's listing (nvidia-coinbase-tokenized-stock and
- * its siblings) and each routed by KyberSwap at under a quarter percent
- * for $10 on 2026-09-30. Base is where the reader can buy them from Arc.
- */
-export const REMOTE_STOCKS: Readonly<Record<string, { name: string; address: string }>> = {
-  NVDA: { name: 'NVIDIA', address: '0xb20000000000000000000078ee7ce2fe4908108c' },
-  AAPL: { name: 'Apple', address: '0xb200000000000000000000c2e324d24d7eecd1fb' },
-  TSLA: { name: 'Tesla', address: '0xb2000000000000000000001e800a7f5189430cd0' },
-  MSFT: { name: 'Microsoft', address: '0xb200000000000000000000ab99cfa739e253872b' },
-  AMZN: { name: 'Amazon', address: '0xb200000000000000000000d9192b6b456483c2e8' },
-  GOOGL: { name: 'Alphabet', address: '0xb2000000000000000000002d0ba3164cc74f58b7' },
-  GOOG: { name: 'Alphabet', address: '0xb2000000000000000000002d0ba3164cc74f58b7' },
-  META: { name: 'Meta', address: '0xb2000000000000000000008bc8786b856e61707c' },
-  MSTR: { name: 'Strategy', address: '0xb2000000000000000000004884b426556b92883d' },
-  PLTR: { name: 'Palantir', address: '0xb2000000000000000000007d16372840df4dabbe' },
-  MU: { name: 'Micron', address: '0xb200000000000000000000fd2f87532b90095211' },
-  SNDK: { name: 'SanDisk', address: '0xb200000000000000000000397293cb8cda9a10c5' },
-};
 
 /** A pool this deep on a chain the reader can buy on beats a deeper one they cannot (PEPE: Arbitrum over Ethereum). */
 const TRADABLE_MIN_LIQUIDITY_USD = 25_000;
@@ -388,7 +369,7 @@ export class RemoteTokens implements OnModuleInit, OnModuleDestroy {
   /** A hand-kept tokenized stock on Base (REMOTE_STOCKS); no snapshot needed. */
   private async stockListing(ticker: string): Promise<RemoteListing> {
     const s = REMOTE_STOCKS[ticker]!;
-    const coin: Coin = { id: `stock:${ticker}`, symbol: ticker, name: s.name, image: null, priceUsd: null, mcapUsd: null };
+    const coin: Coin = { id: `stock:${ticker}`, symbol: ticker, name: s.name, image: s.icon, priceUsd: null, mcapUsd: null };
     return this.listing(coin, 'base', s.address, await this.decimalsOf('base', s.address));
   }
 

@@ -142,6 +142,7 @@ describe('RemoteTokens', () => {
     const nvda = await t.byTicker('$NVDA');
     expect(nvda?.mint).toBe('remote:base:0xb20000000000000000000078ee7ce2fe4908108c');
     expect(nvda?.asset).toMatchObject({ ticker: 'NVDA', name: 'NVIDIA', chain: 'base', venue: 'kyber', decimals: 18 });
+    expect(nvda?.icon).toBe('https://assets.coingecko.com/coins/images/102175596/small/nvda_200x200.png');
     await t.refresh();
     expect((await t.assetOf('remote:base:0xB20000000000000000000078EE7CE2FE4908108C'))?.asset.ticker).toBe('NVDA');
   });
