@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
+  ARC_CONFIRM_SHOW_MESSAGE,
   ARC_TRADE_DONE_MESSAGE,
   ARC_WALLET_LINKED_MESSAGE,
   ARC_WALLET_SIGNIN_MESSAGE,
@@ -134,6 +135,15 @@ describe("the Arc edition's wallet page", () => {
     post({ type: ARC_TRADE_DONE_MESSAGE, id: "not-an-id" })
     expect(sendMessage).toHaveBeenCalledTimes(1)
     expect(sendMessage).toHaveBeenCalledWith({ action: "arc-trade-done", id })
+  })
+
+  it("passes on a minimized confirm window's ask to be shown, with the trade's id only", () => {
+    const id = "0c3e5f6a-1111-4222-8333-944455556666"
+    teardowns.push(installSigninRelay(ARC, ARC))
+    post({ type: ARC_CONFIRM_SHOW_MESSAGE, id })
+    post({ type: ARC_CONFIRM_SHOW_MESSAGE, id: "../../" })
+    expect(sendMessage).toHaveBeenCalledTimes(1)
+    expect(sendMessage).toHaveBeenCalledWith({ action: "arc-confirm-show", id })
   })
 
   it("hears no confirm window anywhere but arc-api", () => {

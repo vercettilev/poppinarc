@@ -932,6 +932,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     sendResponse({ ok: true })
     return true
   }
+  // The same page asking to be seen: it needs the person (a wallet to choose, a decline, an error).
+  if (request?.action === "arc-confirm-show") {
+    let host = ""
+    try {
+      host = new URL(sender.tab?.url ?? "").hostname
+    } catch {
+      // no tab URL: not the relay's shape
+    }
+    if (ARC_EDITION && ARC_API_HOST && host === ARC_API_HOST && typeof request.id === "string") arcConfirmShow(request.id)
+    sendResponse({ ok: true })
+    return true
+  }
 
   if (request?.action === "extension-signin") {
     const from = sender.tab?.url ?? ""
@@ -3127,6 +3139,20 @@ async function openArcConfirm(url: unknown, id: unknown): Promise<{ ok: boolean;
   if (u.protocol !== "https:" || u.hostname !== ARC_API_HOST || u.pathname !== "/api/v1/wallet/confirm") {
     return { ok: false, error: CONFIRM_DID_NOT_OPEN }
   }
+  /*
+   * MINIMIZED, so pressing Buy brings up the wallet and nothing else. The page
+   * has to exist (a wallet only answers a web page) but it need not be seen:
+   * it asks to be shown (arc-confirm-show) only when it needs the person,
+   * and the trade's progress is the sheet's to tell. Owner's call 2026-10-01:
+   * "bu hiç çıkmadan metamask çıkması gerekiyor."
+   */
+  try {
+    const w = await chrome.windows.create({ url, type: "popup", state: "minimized", focused: false })
+    if (w?.id !== undefined) arcConfirmWindows.set(w.id, { id, done: false })
+    return { ok: true }
+  } catch {
+    // Some window managers refuse a minimized popup; a visible one still works.
+  }
   try {
     const w = await chrome.windows.create({ url, type: "popup", width: 440, height: 680, focused: true })
     if (w?.id !== undefined) arcConfirmWindows.set(w.id, { id, done: false })
@@ -3139,6 +3165,13 @@ async function openArcConfirm(url: unknown, id: unknown): Promise<{ ok: boolean;
     } catch {
       return { ok: false, error: CONFIRM_DID_NOT_OPEN }
     }
+  }
+}
+
+function arcConfirmShow(id: string): void {
+  for (const [windowId, entry] of arcConfirmWindows) {
+    if (entry.id !== id) continue
+    void chrome.windows.update(windowId, { state: "normal", focused: true, width: 440, height: 680 }).catch(() => {})
   }
 }
 

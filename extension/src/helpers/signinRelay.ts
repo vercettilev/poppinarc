@@ -31,6 +31,8 @@ export const SIGNIN_POST_MESSAGE = "POPPIN_EXT_SIGNIN"
 export const ARC_WALLET_SIGNIN_MESSAGE = "POPPIN_ARC_WALLET_SIGNIN"
 /** arc-api's confirm page, once the wallet has sent the trade (arc-api trade/confirm-page.ts). */
 export const ARC_TRADE_DONE_MESSAGE = "POPPIN_ARC_TRADE_DONE"
+/** The confirm window, opened minimized, asking to be shown because it needs the person. */
+export const ARC_CONFIRM_SHOW_MESSAGE = "POPPIN_ARC_CONFIRM_SHOW"
 /** arc-api's wallet page in connect mode, once the wallet is connected to the account. */
 export const ARC_WALLET_LINKED_MESSAGE = "POPPIN_ARC_WALLET_LINKED"
 
@@ -69,6 +71,14 @@ export function installSigninRelay(
         void chrome.runtime.sendMessage({ action: "arc-trade-done", id: d.id }).catch(() => {})
       } catch {
         // Extension context invalidated. The window stays open; nothing is lost.
+      }
+      return
+    }
+    if (arcApi && d?.type === ARC_CONFIRM_SHOW_MESSAGE && typeof d.id === "string" && /^[0-9a-f-]{36}$/.test(d.id)) {
+      try {
+        void chrome.runtime.sendMessage({ action: "arc-confirm-show", id: d.id }).catch(() => {})
+      } catch {
+        // Extension context invalidated. The window stays where it is.
       }
       return
     }

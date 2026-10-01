@@ -18,6 +18,10 @@ import { POPPIN_LOGO_DATA_URI } from '../auth/wallet-page-logo';
  * data), sign the order (the user operation's hash), wait for it to land.
  * The page never decides what comes next; it asks /next and reports to /step.
  *
+ * The extension opens this page MINIMIZED, so Buy brings up the wallet and
+ * nothing else; the page asks to be shown (POPPIN_ARC_CONFIRM_SHOW) only when
+ * the person is needed: no wallet to pick on its own, a decline, an error.
+ *
  * The wallet used last is remembered in this page's own storage, so the next
  * trade starts in it without a list. Nothing else is stored.
  *
@@ -86,6 +90,8 @@ export function confirmTradePage(): string {
   var FALLBACKS = ${JSON.stringify(WALLET_ICON_FALLBACKS)};
 
   function say(text, err) { status.textContent = text || ""; status.className = err ? "status err" : "status"; }
+  // The extension opens this window minimized; it comes forward only when the person is needed.
+  function show() { window.postMessage({ type: "POPPIN_ARC_CONFIRM_SHOW", id: ID }, location.origin); }
   function lower(s) { return String(s || "").toLowerCase(); }
   function short(a) { return a.slice(0, 6) + "…" + a.slice(-4); }
   function remembered() { try { return localStorage.getItem(REMEMBER) || ""; } catch (e) { return ""; } }
@@ -172,6 +178,7 @@ export function confirmTradePage(): string {
         if (pick) { run(pick); return; }
         render(true);
         if (found.size > 0) say("Choose the wallet you signed in with.");
+        show();
       });
     }, 700);
   }
@@ -327,11 +334,11 @@ export function confirmTradePage(): string {
       .catch(function (err) {
         var declined = err && (err.code === 4001 || /reject|denied|cancel/i.test(String(err.message || "")));
         say(declined ? "You declined in " + name + ". Pick a wallet to try again." : (err && err.message) || "Something went wrong. Try again.", true);
-        busy = false; render(true);
+        busy = false; render(true); show();
       });
   }
 
-  if (!ID || !KEY) { say("This link is not valid. Start the trade again from Poppin.", true); return; }
+  if (!ID || !KEY) { say("This link is not valid. Start the trade again from Poppin.", true); show(); return; }
   post("/data", { id: ID, t: KEY })
     .then(function (d) {
       data = d;
@@ -340,7 +347,7 @@ export function confirmTradePage(): string {
       if (d.state === "done") { finish({ state: "done" }); return; }
       discover();
     })
-    .catch(function (err) { say((err && err.message) || "Something went wrong. Try again.", true); });
+    .catch(function (err) { say((err && err.message) || "Something went wrong. Try again.", true); show(); });
 })();
 </script>
 </body>
